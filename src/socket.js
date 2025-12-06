@@ -247,7 +247,14 @@ const onlineUsers = new Map(); // socketId -> { userId }
 const userRooms = new Map();   // userId -> Set(chatIds)
 
 const mountIO = (httpServer, corsOrigin) => {
-  const io = new Server(httpServer, { cors: { origin: corsOrigin } });
+  // ✅ Support multiple origins
+  const origins = corsOrigin?.split(',') || ['http://localhost:3000'];
+  const io = new Server(httpServer, {
+    cors: {
+      origin: origins,
+      credentials: true
+    }
+  });
 
   io.use(async (socket, next) => {
     const { userId } = socket.handshake.auth || {};

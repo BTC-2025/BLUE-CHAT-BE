@@ -58,7 +58,20 @@ dotenv.config();
 async function startServer() {
   const app = express();
 
-  app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }));
+  // ✅ CORS - support multiple origins for dev and production
+  const allowedOrigins = process.env.CLIENT_ORIGIN?.split(',') || ['http://localhost:3000'];
+  app.use(cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true
+  }));
   app.use(express.json());
 
   // Routes
@@ -66,7 +79,7 @@ async function startServer() {
   app.use("/api/users", userRoutes);
   app.use("/api/chats", chatRoutes);
   app.use("/api/messages", messageRoutes);
-  app.use("/api/groups",groupRoutes)
+  app.use("/api/groups", groupRoutes)
 
   // ✅ DB connect (inside async function)
   await connectDB(process.env.MONGO_URI);
