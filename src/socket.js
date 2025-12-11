@@ -605,6 +605,84 @@ const mountIO = (httpServer, corsOrigin) => {
       }
     });
 
+    // ✅ Pin a message
+    socket.on("message:pin", async ({ messageId, chatId }, callback) => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (!chat) return callback?.({ success: false, error: "Chat not found" });
+
+        // Check admin permission for groups
+        if (chat.isGroup && !chat.admins.map(String).includes(userId)) {
+          return callback?.({ success: false, error: "Only admins can pin messages" });
+        }
+
+        const message = await Message.findByIdAndUpdate(
+          messageId,
+          { isPinned: true, pinnedBy: userId, pinnedAt: new Date() },
+          { new: true }
+        ).populate("sender", "full_name phone");
+
+        io.to(chatId).emit("message:pinned", { chatId, message });
+        callback?.({ success: true, message });
+      } catch (err) {
+        console.error("Pin message error:", err);
+        callback?.({ success: false, error: err.message });
+      }
+    });
+
+    // ✅ Unpin a message
+    socket.on("message:unpin", async ({ messageId, chatId }, callback) => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (!chat) return callback?.({ success: false, error: "Chat not found" });
+
+        // Check admin permission for groups
+        if (chat.isGroup && !chat.admins.map(String).includes(userId)) {
+          return callback?.({ success: false, error: "Only admins can unpin messages" });
+        }
+
+        await Message.findByIdAndUpdate(messageId, {
+          isPinned: false,
+          pinnedBy: null,
+          pinnedAt: null
+        });
+
+        io.to(chatId).emit("message:unpinned", { chatId, messageId });
+        callback?.({ success: true });
+      } catch (err) {
+        console.error("Unpin message error:", err);
+        callback?.({ success: false, error: err.message });
+      }
+    });
+
+    // ✅ Pin a chat (for current user)
+    socket.on("chat:pin", async ({ chatId }, callback) => {
+      try {
+        await Chat.findByIdAndUpdate(chatId, {
+          $addToSet: { pinnedBy: userId }
+        });
+        socket.emit("chat:pinned", { chatId });
+        callback?.({ success: true });
+      } catch (err) {
+        console.error("Pin chat error:", err);
+        callback?.({ success: false, error: err.message });
+      }
+    });
+
+    // ✅ Unpin a chat (for current user)
+    socket.on("chat:unpin", async ({ chatId }, callback) => {
+      try {
+        await Chat.findByIdAndUpdate(chatId, {
+          $pull: { pinnedBy: userId }
+        });
+        socket.emit("chat:unpinned", { chatId });
+        callback?.({ success: true });
+      } catch (err) {
+        console.error("Unpin chat error:", err);
+        callback?.({ success: false, error: err.message });
+      }
+    });
+
   });
 
   return io;

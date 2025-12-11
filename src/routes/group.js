@@ -140,16 +140,24 @@ router.post("/:id/admins", auth, async (req, res) => {
  * returns group with members (minimal info)
  */
 router.get("/:id", auth, async (req, res) => {
-  const chat = await Chat.findById(req.params.id).populate("participants", "full_name phone").populate("admins", "_id");
+  const chat = await Chat.findById(req.params.id)
+    .populate("participants", "full_name phone")
+    .populate("admins", "_id");
+
   if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
-  if (!chat.participants.map(String).includes(req.user.id)) return res.status(403).json({ message: "Forbidden" });
+
+  // ✅ After populate, participants are user documents with _id field
+  const participantIds = chat.participants.map(p => String(p._id));
+  if (!participantIds.includes(req.user.id)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
   res.json({
     id: chat._id,
     title: chat.title,
     description: chat.description,
     members: chat.participants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone })),
-    admins: chat.admins.map(String),
+    admins: chat.admins.map(a => String(a._id)),
   });
 });
 
