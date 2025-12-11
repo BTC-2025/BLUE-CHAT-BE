@@ -406,16 +406,21 @@ const mountIO = (httpServer, corsOrigin) => {
           msg.deletedForEveryone = true;
           await msg.save();
 
-          // notify entire chat
-          io.to(String(msg.chat)).emit("message:deleted:everyone", { messageId });
+          // notify entire chat - include chatId for client validation
+          io.to(String(msg.chat)).emit("message:deleted:everyone", {
+            messageId,
+            chatId: String(msg.chat)
+          });
         } else {
           // delete only for current user
           msg.deletedFor.addToSet(userId);
           await msg.save();
 
           // notify ONLY this user's sockets
-          // (send to the connection that requested; if you support multi-device, you can track and emit to all user sockets)
-          socket.emit("message:deleted:me", { messageId });
+          socket.emit("message:deleted:me", {
+            messageId,
+            chatId: String(msg.chat)
+          });
         }
       } catch (err) {
         console.error("message:delete error", err);
