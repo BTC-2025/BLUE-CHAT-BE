@@ -284,7 +284,7 @@ const mountIO = (httpServer, corsOrigin) => {
     );
 
     // Send message
-    socket.on("message:send", async ({ chatId, body, attachments }) => {
+    socket.on("message:send", async ({ chatId, body, attachments, replyTo }) => {
       const chat = await Chat.findById(chatId);
       if (!chat) return;
 
@@ -315,11 +315,17 @@ const mountIO = (httpServer, corsOrigin) => {
         sender: userId,
         body,
         attachments: attachments || [],
+        replyTo: replyTo || null, // ✅ Support reply-to
       });
 
-      // ✅ Populate sender info for group chats
+      // ✅ Populate sender info and replyTo for clients
       msg = await Message.findById(msg._id)
-        .populate("sender", "full_name phone")
+        .populate("sender", "full_name phone avatar")
+        .populate({
+          path: "replyTo",
+          select: "body sender attachments",
+          populate: { path: "sender", select: "full_name phone" }
+        })
         .lean();
 
       chat.lastMessage = body || (attachments?.length ? "[attachment]" : "");
@@ -685,6 +691,59 @@ const mountIO = (httpServer, corsOrigin) => {
         callback?.({ success: true });
       } catch (err) {
         console.error("Unpin chat error:", err);
+        callback?.({ success: false, error: err.message });
+      }
+    });
+
+    // ══════════════════════════════════════════════
+    // ✅ FORWARD MESSAGE
+    // ══════════════════════════════════════════════
+    socket.on("message:forward", async ({ messageId, targetChatId }, callback) => {
+      try {
+        const originalMsg = await Message.findById(messageId);
+        if (!originalMsg) {
+          return callback?.({ success: false, error: "Message not found" });
+        }
+
+        const targetChat = await Chat.findById(targetChatId);
+        if (!targetChat || !targetChat.participants.map(String).includes(userId)) {
+          return callback?.({ success: false, error: "Cannot forward to this chat" });
+        }
+
+        // Create forwarded message
+        let newMsg = await Message.create({
+          chat: targetChatId,
+          sender: userId,
+          body: originalMsg.body,
+          attachments: originalMsg.attachments || [],
+          forwardedFrom: {
+            originalSender: originalMsg.sender,
+            originalChat: originalMsg.chat
+          }
+        });
+
+        // Populate for clients
+        newMsg = await Message.findById(newMsg._id)
+          .populate("sender", "full_name phone avatar")
+          .populate("forwardedFrom.originalSender", "full_name phone")
+          .lean();
+
+        // Update chat lastMessage
+        targetChat.lastMessage = originalMsg.body || "[forwarded]";
+        targetChat.lastAt = newMsg.createdAt;
+        await targetChat.save();
+
+        // Emit to target chat room
+        io.to(String(targetChatId)).emit("message:new", newMsg);
+        io.emit("chats:update", {
+          chatId: targetChatId,
+          lastMessage: targetChat.lastMessage,
+          lastAt: targetChat.lastAt,
+        });
+
+        callback?.({ success: true });
+      } catch (err) {
+        console.error("Forward message error:", err);
         callback?.({ success: false, error: err.message });
       }
     });

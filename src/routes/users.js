@@ -27,7 +27,19 @@ router.patch("/me", auth, async (req, res) => {
   res.json(me);
 });
 
+// ✅ Profile update endpoint (for ProfileModal)
+router.put("/profile", auth, async (req, res) => {
+  const { full_name, avatar } = req.body;
+  const me = await User.findByIdAndUpdate(
+    req.user.id,
+    { full_name, avatar },
+    { new: true }
+  ).select("-password_hash");
+  res.json(me);
+});
+
 
 // export default router;
 
 module.exports = router
+

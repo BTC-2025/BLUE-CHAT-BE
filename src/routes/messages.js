@@ -68,7 +68,13 @@ router.get("/:chatId", auth, async (req, res) => {
 
   // Fetch messages sorted by time, populate sender info for group chats
   const msgs = await Message.find({ chat: chatId })
-    .populate("sender", "full_name phone")
+    .populate("sender", "full_name phone avatar")
+    .populate({
+      path: "replyTo",
+      select: "body sender attachments",
+      populate: { path: "sender", select: "full_name phone" }
+    })
+    .populate("forwardedFrom.originalSender", "full_name phone")
     .sort({ createdAt: 1 })
     .lean();
 

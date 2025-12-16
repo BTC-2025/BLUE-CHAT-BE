@@ -8,6 +8,13 @@ const messageSchema = new mongoose.Schema({
   attachments: [{
     url: String, type: { type: String } // image|file|audio, etc.
   }],
+  // Reply to another message
+  replyTo: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },
+  // Forward info
+  forwardedFrom: {
+    originalSender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    originalChat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" }
+  },
   status: { type: String, enum: ["sent", "delivered", "seen"], default: "sent" },
   deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
@@ -25,4 +32,5 @@ messageSchema.index({ chat: 1, createdAt: 1 });
 // export default mongoose.model("Message", messageSchema);
 
 module.exports = mongoose.model("Message", messageSchema)
+
 
