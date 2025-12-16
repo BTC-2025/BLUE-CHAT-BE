@@ -15,6 +15,11 @@ const messageSchema = new mongoose.Schema({
     originalSender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     originalChat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" }
   },
+  // ✅ Emoji reactions
+  reactions: [{
+    emoji: String,
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+  }],
   status: { type: String, enum: ["sent", "delivered", "seen"], default: "sent" },
   deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
@@ -32,5 +37,6 @@ messageSchema.index({ chat: 1, createdAt: 1 });
 // export default mongoose.model("Message", messageSchema);
 
 module.exports = mongoose.model("Message", messageSchema)
+
 
 

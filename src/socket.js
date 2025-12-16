@@ -434,6 +434,40 @@ const mountIO = (httpServer, corsOrigin) => {
       }
     });
 
+    // ✅ Add/remove emoji reaction
+    socket.on("message:react", async ({ messageId, emoji }, callback) => {
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg) return callback?.({ success: false, error: "Message not found" });
+
+        // Check if user already reacted with this emoji
+        const existingIndex = msg.reactions.findIndex(
+          r => String(r.user) === userId && r.emoji === emoji
+        );
+
+        if (existingIndex >= 0) {
+          // Remove reaction (toggle off)
+          msg.reactions.splice(existingIndex, 1);
+        } else {
+          // Add reaction
+          msg.reactions.push({ emoji, user: userId });
+        }
+
+        await msg.save();
+
+        // Emit to all users in the chat
+        io.to(String(msg.chat)).emit("message:reacted", {
+          messageId,
+          reactions: msg.reactions
+        });
+
+        callback?.({ success: true });
+      } catch (err) {
+        console.error("message:react error:", err);
+        callback?.({ success: false, error: err.message });
+      }
+    });
+
     // Pin chat
     socket.on("chat:pin", async ({ chatId, pin }) => {
       const chat = await Chat.findById(chatId);
