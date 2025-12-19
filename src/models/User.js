@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   lastSeen: { type: Date, default: null },        // 👈 presence
   isOnline: { type: Boolean, default: false },    // 👈 presence
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // 👈 blocked users
+  publicKey: String, // 👈 RSA public key for E2EE
 }, { timestamps: true });
 
 

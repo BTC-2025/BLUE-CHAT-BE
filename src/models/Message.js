@@ -15,6 +15,9 @@ const messageSchema = new mongoose.Schema({
     originalSender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     originalChat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" }
   },
+  // ✅ Encryption fields
+  encryptedBody: String,
+  encryptedKey: String, // AES key encrypted with recipient's RSA public key
   // ✅ Emoji reactions
   reactions: [{
     emoji: String,

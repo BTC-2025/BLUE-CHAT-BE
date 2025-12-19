@@ -13,7 +13,7 @@ const router = express.Router();
 router.get("/search/:phone", auth, async (req, res) => {
   const u = await User.findOne({ phone: req.params.phone });
   if (!u) return res.status(404).json({ message: "User not found" });
-  res.json({ id: u._id, phone: u.phone, full_name: u.full_name, avatar: u.avatar });
+  res.json({ id: u._id, phone: u.phone, full_name: u.full_name, avatar: u.avatar, publicKey: u.publicKey });
 });
 
 router.get("/me", auth, async (req, res) => {
@@ -36,6 +36,12 @@ router.put("/profile", auth, async (req, res) => {
     { new: true }
   ).select("-password_hash");
   res.json(me);
+});
+
+router.patch("/update-public-key", auth, async (req, res) => {
+  const { publicKey } = req.body;
+  const user = await User.findByIdAndUpdate(req.user.id, { publicKey }, { new: true }).select("-password_hash");
+  res.json(user);
 });
 
 

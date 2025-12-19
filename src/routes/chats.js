@@ -36,7 +36,7 @@ router.get("/", auth, async (req, res) => {
   const userId = req.user.id;
   const chats = await Chat.find({ participants: userId })
     .sort({ lastAt: -1 })
-    .populate("participants", "full_name phone avatar isOnline lastSeen")
+    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey")
     .lean();
 
   const shaped = chats
@@ -58,7 +58,8 @@ router.get("/", auth, async (req, res) => {
         admins: c.isGroup ? (c.admins || []).map(String) : undefined,
         other: c.isGroup ? undefined : {
           id: other._id, full_name: other.full_name, phone: other.phone,
-          avatar: other.avatar, isOnline: other.isOnline, lastSeen: other.lastSeen
+          avatar: other.avatar, isOnline: other.isOnline, lastSeen: other.lastSeen,
+          publicKey: other.publicKey
         },
         lastMessage: c.lastMessage,
         lastAt: c.lastAt,
@@ -86,7 +87,7 @@ router.post("/open", auth, async (req, res) => {
   if (!chat) {
     chat = await Chat.create({ participants: [req.user.id, target._id] });
   }
-  res.json({ id: chat._id, other: { id: target._id, full_name: target.full_name, phone: target.phone } });
+  res.json({ id: chat._id, other: { id: target._id, full_name: target.full_name, phone: target.phone, publicKey: target.publicKey } });
 });
 
 // export default router;

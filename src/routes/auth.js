@@ -11,7 +11,7 @@ const User = require('../models/User')
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
-  const { phone, full_name, password, avatar } = req.body;
+  const { phone, full_name, password, avatar, publicKey } = req.body;
   if (!phone || !password) return res.status(400).json({ message: "Phone & password required" });
 
   const exists = await User.findOne({ phone });
@@ -22,11 +22,12 @@ router.post("/register", async (req, res) => {
     phone,
     full_name: full_name || "",
     password_hash: hash,
-    avatar: avatar || "" // ✅ Support avatar on signup
+    avatar: avatar || "", // ✅ Support avatar on signup
+    publicKey: publicKey || "" // ✅ Support E2EE public key
   });
 
   const token = jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.status(201).json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar });
+  res.status(201).json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar, publicKey: user.publicKey });
 });
 
 router.post("/login", async (req, res) => {
@@ -38,7 +39,7 @@ router.post("/login", async (req, res) => {
   if (!ok) return res.status(400).json({ message: "Wrong password" });
 
   const token = jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.json({ token, id: user._id, phone: user.phone, full_name: user.full_name });
+  res.json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar, publicKey: user.publicKey });
 });
 
 // export default router;
