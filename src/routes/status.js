@@ -2,6 +2,7 @@ const Status = require("../models/Status");
 const { auth } = require("../middleware/auth");
 const User = require("../models/User");
 const Chat = require("../models/Chat"); // ✅ Added Chat model
+const express = require("express")
 
 const router = express.Router();
 
