@@ -22,17 +22,17 @@ router.get("/me", auth, async (req, res) => {
 });
 
 router.patch("/me", auth, async (req, res) => {
-  const { full_name, about, avatar } = req.body;
-  const me = await User.findByIdAndUpdate(req.user.id, { full_name, about, avatar }, { new: true }).select("-password_hash");
+  const { full_name, about, avatar, email } = req.body;
+  const me = await User.findByIdAndUpdate(req.user.id, { full_name, about, avatar, email }, { new: true }).select("-password_hash");
   res.json(me);
 });
 
 // ✅ Profile update endpoint (for ProfileModal)
 router.put("/profile", auth, async (req, res) => {
-  const { full_name, avatar } = req.body;
+  const { full_name, avatar, email, about } = req.body;
   const me = await User.findByIdAndUpdate(
     req.user.id,
-    { full_name, avatar },
+    { full_name, avatar, email, about },
     { new: true }
   ).select("-password_hash");
   res.json(me);
