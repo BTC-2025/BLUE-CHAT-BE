@@ -284,7 +284,7 @@ const mountIO = (httpServer, corsOrigin) => {
     );
 
     // Send message
-    socket.on("message:send", async ({ chatId, body, attachments, replyTo }) => {
+    socket.on("message:send", async ({ chatId, body, attachments, replyTo, encryptedBody, encryptedKeys }) => {
       const chat = await Chat.findById(chatId);
       if (!chat) return;
 
@@ -316,6 +316,8 @@ const mountIO = (httpServer, corsOrigin) => {
         body,
         attachments: attachments || [],
         replyTo: replyTo || null, // ✅ Support reply-to
+        encryptedBody: encryptedBody || null,
+        encryptedKeys: encryptedKeys || [],
       });
 
       // ✅ Populate sender info and replyTo for clients

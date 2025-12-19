@@ -17,7 +17,10 @@ const messageSchema = new mongoose.Schema({
   },
   // ✅ Encryption fields
   encryptedBody: String,
-  encryptedKey: String, // AES key encrypted with recipient's RSA public key
+  encryptedKeys: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    key: String // AES key encrypted with this user's RSA public key
+  }],
   // ✅ Emoji reactions
   reactions: [{
     emoji: String,
