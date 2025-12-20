@@ -9,6 +9,11 @@ const chatSchema = new mongoose.Schema({
   admins: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // 👈 admin-only
   lastMessage: String,
   lastAt: Date,
+  lastEncryptedBody: String, // ✅ For sidebar E2EE decryption
+  lastEncryptedKeys: [{       // ✅ For sidebar E2EE decryption
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    key: String
+  }],
   pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],        // 👈 pinned
   unread: { type: Map, of: Number, default: {} },                             // 👈 unread per userId
 }, { timestamps: true });
@@ -18,4 +23,4 @@ chatSchema.index({ participants: 1 }, { unique: false });
 
 // mongoose.model("Chat", chatSchema);
 
-module.exports = mongoose.model("Chat" , chatSchema)
+module.exports = mongoose.model("Chat", chatSchema)
