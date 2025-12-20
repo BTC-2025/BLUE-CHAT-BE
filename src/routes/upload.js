@@ -104,8 +104,12 @@ router.post("/", auth, upload.single("file"), async (req, res) => {
             size: req.file.size,
         });
     } catch (error) {
-        console.error("Upload error:", error);
-        res.status(500).json({ message: "Upload failed", error: error.message });
+        console.error("Critical Upload Error:", error);
+        res.status(500).json({
+            message: "Upload failed",
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
