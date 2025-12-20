@@ -61,14 +61,25 @@ async function startServer() {
   const app = express();
 
   // ✅ CORS - support multiple origins for dev and production
-  const allowedOrigins = process.env.CLIENT_ORIGIN?.split(',') || ['http://localhost:3000'];
+  const allowedOrigins = [
+    'https://www.bluechat.in',
+    'https://bluechat.in',
+    'http://localhost:3000'
+  ];
+
+  if (process.env.CLIENT_ORIGIN) {
+    process.env.CLIENT_ORIGIN.split(',').forEach(o => allowedOrigins.push(o.trim()));
+  }
+
   app.use(cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin) return callback(null, true);
+      // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn(`CORS blocked for origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
