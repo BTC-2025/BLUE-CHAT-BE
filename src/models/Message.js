@@ -34,7 +34,10 @@ const messageSchema = new mongoose.Schema({
   // Pin message fields
   isPinned: { type: Boolean, default: false },
   pinnedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  pinnedAt: Date
+  pinnedAt: Date,
+  // Scheduled message fields
+  scheduledAt: { type: Date, index: true },
+  isReleased: { type: Boolean, default: true, index: true }
 }, { timestamps: true });
 
 

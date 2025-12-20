@@ -284,7 +284,7 @@ const mountIO = (httpServer, corsOrigin) => {
     );
 
     // Send message
-    socket.on("message:send", async ({ chatId, body, attachments, replyTo, encryptedBody, encryptedKeys }) => {
+    socket.on("message:send", async ({ chatId, body, attachments, replyTo, encryptedBody, encryptedKeys, scheduledAt }) => {
       const chat = await Chat.findById(chatId);
       if (!chat) return;
 
@@ -310,14 +310,19 @@ const mountIO = (httpServer, corsOrigin) => {
         }
       }
 
+      // ✅ Determine if this is a scheduled message
+      const isScheduled = !!scheduledAt && new Date(scheduledAt) > new Date();
+
       let msg = await Message.create({
         chat: chatId,
         sender: userId,
         body,
         attachments: attachments || [],
-        replyTo: replyTo || null, // ✅ Support reply-to
+        replyTo: replyTo || null,
         encryptedBody: encryptedBody || null,
         encryptedKeys: encryptedKeys || [],
+        scheduledAt: isScheduled ? new Date(scheduledAt) : null,
+        isReleased: !isScheduled
       });
 
       // ✅ Populate sender info and replyTo for clients
@@ -330,10 +335,19 @@ const mountIO = (httpServer, corsOrigin) => {
         })
         .lean();
 
+      // If scheduled, stop here (sender gets confirmation, receiver gets nothing yet)
+      if (isScheduled) {
+        return socket.emit("message:scheduled", {
+          message: msg,
+          chatId,
+          scheduledAt: msg.scheduledAt
+        });
+      }
+
       chat.lastMessage = body || (attachments?.length ? "[attachment]" : "");
       chat.lastAt = msg.createdAt;
-      chat.lastEncryptedBody = encryptedBody || null; // ✅ Save for sidebar decryption
-      chat.lastEncryptedKeys = encryptedKeys || []; // ✅ Save for sidebar decryption
+      chat.lastEncryptedBody = encryptedBody || null;
+      chat.lastEncryptedKeys = encryptedKeys || [];
 
       // Build set of userIds currently in this chat room
       const socketIdSet = io.sockets.adapter.rooms.get(String(chatId)) || new Set();

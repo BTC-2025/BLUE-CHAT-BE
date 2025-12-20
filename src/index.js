@@ -91,7 +91,11 @@ async function startServer() {
   const httpServer = createServer(app);
 
   // ✅ Init Socket.IO
-  mountIO(httpServer, process.env.CLIENT_ORIGIN);
+  const io = mountIO(httpServer, process.env.CLIENT_ORIGIN);
+
+  // ✅ Start Release Worker (for scheduled messages)
+  const { startReleaseWorker } = require('./releaseWorker');
+  startReleaseWorker(io);
 
   // Start server
   httpServer.listen(process.env.PORT, () => {
