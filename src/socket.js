@@ -442,16 +442,23 @@ const mountIO = (httpServer, corsOrigin) => {
         const msg = await Message.findById(messageId);
         if (!msg) return callback?.({ success: false, error: "Message not found" });
 
-        // Check if user already reacted with this emoji
-        const existingIndex = msg.reactions.findIndex(
-          r => String(r.user) === userId && r.emoji === emoji
+        // Check if user already has ANY reaction
+        const existingReactionIndex = msg.reactions.findIndex(
+          r => String(r.user) === userId
         );
 
-        if (existingIndex >= 0) {
-          // Remove reaction (toggle off)
-          msg.reactions.splice(existingIndex, 1);
+        if (existingReactionIndex >= 0) {
+          const existingReaction = msg.reactions[existingReactionIndex];
+
+          if (existingReaction.emoji === emoji) {
+            // Same emoji => Toggle off (remove)
+            msg.reactions.splice(existingReactionIndex, 1);
+          } else {
+            // Different emoji => Replace
+            msg.reactions[existingReactionIndex].emoji = emoji;
+          }
         } else {
-          // Add reaction
+          // No existing reaction => Add new
           msg.reactions.push({ emoji, user: userId });
         }
 
