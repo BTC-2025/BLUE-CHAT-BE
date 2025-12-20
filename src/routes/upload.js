@@ -1,15 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
 const jwt = require("jsonwebtoken");
-
-// Configure Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const FileModel = require("../models/File");
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -17,26 +10,23 @@ const upload = multer({
     storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: (req, file, cb) => {
-        // Check if file type is allowed (using startsWith for broader matching)
         const mime = file.mimetype.toLowerCase();
+        const isAllowed = mime.startsWith("image/") ||
+            mime.startsWith("video/") ||
+            mime.startsWith("audio/") ||
+            [
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "text/plain",
+                "application/octet-stream",
+            ].includes(mime);
 
-        const isImage = mime.startsWith("image/");
-        const isVideo = mime.startsWith("video/");
-        const isAudio = mime.startsWith("audio/");
-        const isDocument = [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/plain",
-            "application/octet-stream", // For some audio files
-        ].includes(mime);
-
-        if (isImage || isVideo || isAudio || isDocument) {
+        if (isAllowed) {
             cb(null, true);
         } else {
-            console.log("Rejected file type:", mime);
             cb(new Error(`File type not allowed: ${mime}`), false);
         }
     },
@@ -56,59 +46,69 @@ const auth = (req, res, next) => {
     }
 };
 
-// Upload endpoint
+/**
+ * @route   GET /api/upload/:id
+ * @desc    Serve a file from the database
+ * @access  Public (for chat media)
+ */
+router.get("/:id", async (req, res) => {
+    try {
+        const file = await FileModel.findById(req.params.id);
+        if (!file) return res.status(404).json({ message: "File not found" });
+
+        res.set("Content-Type", file.contentType);
+        res.set("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+        res.send(file.data);
+    } catch (error) {
+        res.status(500).json({ message: "Error retrieving file", error: error.message });
+    }
+});
+
+/**
+ * @route   POST /api/upload
+ * @desc    Upload a file to the database
+ * @access  Private
+ */
 router.post("/", auth, upload.single("file"), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: "No file provided" });
         }
 
-        // Determine resource type for Cloudinary
-        let resourceType = "auto";
-        if (req.file.mimetype.startsWith("video/")) {
-            resourceType = "video";
-        } else if (req.file.mimetype.startsWith("image/")) {
-            resourceType = "image";
-        } else if (req.file.mimetype.startsWith("audio/")) {
-            resourceType = "video"; // Cloudinary uses 'video' for audio files
-        } else {
-            resourceType = "raw"; // For documents/files
-        }
-
-        // Upload to Cloudinary
-        const result = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    resource_type: resourceType,
-                    folder: "bluechat",
-                    public_id: `${Date.now()}-${req.file.originalname.replace(/\.[^/.]+$/, "")}`,
-                },
-                (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
-                }
-            );
-            uploadStream.end(req.file.buffer);
+        // Save to Database
+        const newFile = new FileModel({
+            name: req.file.originalname,
+            data: req.file.buffer,
+            contentType: req.file.mimetype,
+            size: req.file.size,
+            userId: req.userId
         });
 
-        // Determine file type category
+        await newFile.save();
+
+        // Determine file type category for frontend logic
         let type = "file";
         if (req.file.mimetype.startsWith("image/")) type = "image";
         else if (req.file.mimetype.startsWith("video/")) type = "video";
         else if (req.file.mimetype.startsWith("audio/")) type = "audio";
 
+        // Construct URL
+        const protocol = req.protocol;
+        const host = req.get("host");
+        const fileUrl = `${protocol}://${host}/api/upload/${newFile._id}`;
+
         res.json({
-            url: result.secure_url,
+            url: fileUrl,
             type,
             name: req.file.originalname,
             size: req.file.size,
+            id: newFile._id
         });
     } catch (error) {
-        console.error("Critical Upload Error:", error);
+        console.error("Database Upload Error:", error);
         res.status(500).json({
             message: "Upload failed",
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            error: error.message
         });
     }
 });
