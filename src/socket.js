@@ -248,14 +248,7 @@ const userRooms = new Map();   // userId -> Set(chatIds)
 
 const mountIO = (httpServer, corsOrigin) => {
   // ✅ Support multiple origins
-  const rawOrigins = ['https://www.bluechat.in', 'https://bluechat.in', 'http://localhost:3000'];
-  if (corsOrigin) {
-    corsOrigin.split(',').forEach(o => rawOrigins.push(o.trim()));
-  }
-
-  // Sanitize for robust matching
-  const origins = rawOrigins.map(o => o.toLowerCase().replace(/\/$/, ""));
-
+  const origins = corsOrigin?.split(',') || ['http://localhost:3000'];
   const io = new Server(httpServer, {
     cors: {
       origin: origins,
