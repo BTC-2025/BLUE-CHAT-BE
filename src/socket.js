@@ -332,6 +332,8 @@ const mountIO = (httpServer, corsOrigin) => {
 
       chat.lastMessage = body || (attachments?.length ? "[attachment]" : "");
       chat.lastAt = msg.createdAt;
+      chat.lastEncryptedBody = encryptedBody || null; // ✅ Save for sidebar decryption
+      chat.lastEncryptedKeys = encryptedKeys || []; // ✅ Save for sidebar decryption
 
       // Build set of userIds currently in this chat room
       const socketIdSet = io.sockets.adapter.rooms.get(String(chatId)) || new Set();

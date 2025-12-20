@@ -63,6 +63,8 @@ router.get("/", auth, async (req, res) => {
         },
         lastMessage: c.lastMessage,
         lastAt: c.lastAt,
+        lastEncryptedBody: c.lastEncryptedBody,
+        lastEncryptedKeys: c.lastEncryptedKeys,
         unread: unreadCount,
         pinned
       };
