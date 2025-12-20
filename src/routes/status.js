@@ -7,7 +7,22 @@ const express = require("express")
 const router = express.Router();
 
 // ✅ Create status
-// ... (POST logic remains the same)
+router.post("/", auth, async (req, res) => {
+    try {
+        const { content, type, backgroundColor } = req.body;
+        const newStatus = new Status({
+            user: req.user.id,
+            content,
+            type: type || "image",
+            backgroundColor: backgroundColor || "#000000"
+        });
+        await newStatus.save();
+        res.status(201).json(newStatus);
+    } catch (err) {
+        console.error("Failed to create status:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 
 // ✅ Get statuses for user and their messaged contacts only
 router.get("/", auth, async (req, res) => {
