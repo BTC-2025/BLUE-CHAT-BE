@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, default: "" }, // ✅ New email field
   password_hash: { type: String, required: true },
   avatar: String,
-  about: { type: String, default: "Hey there! I am using BTC Chat." },
+  about: { type: String, default: "Hey there! I am using BlueChat." },
   lastSeen: { type: Date, default: null },        // 👈 presence
   isOnline: { type: Boolean, default: false },    // 👈 presence
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // 👈 blocked users

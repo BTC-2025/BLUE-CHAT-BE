@@ -80,7 +80,7 @@ router.post("/", auth, upload.single("file"), async (req, res) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     resource_type: resourceType,
-                    folder: "btc-chat",
+                    folder: "bluechat",
                     public_id: `${Date.now()}-${req.file.originalname.replace(/\.[^/.]+$/, "")}`,
                 },
                 (error, result) => {
