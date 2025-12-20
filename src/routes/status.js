@@ -28,6 +28,10 @@ router.get("/", auth, async (req, res) => {
 
         const statuses = await Status.find({ user: { $in: allowedUserIds } })
             .populate("user", "full_name phone avatar")
+            .populate({
+                path: "viewedBy",
+                select: "phone avatar full_name"
+            })
             .sort({ createdAt: -1 });
 
         // Group by user
