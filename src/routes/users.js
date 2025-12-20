@@ -5,6 +5,9 @@
 
 const express = require('express')
 const User = require('../models/User')
+const Chat = require('../models/Chat')
+const Message = require('../models/Message')
+const Status = require('../models/Status')
 const { auth } = require('../middleware/auth')
 
 const router = express.Router();
@@ -42,6 +45,55 @@ router.patch("/update-public-key", auth, async (req, res) => {
   const { publicKey } = req.body;
   const user = await User.findByIdAndUpdate(req.user.id, { publicKey }, { new: true }).select("-password_hash");
   res.json(user);
+});
+
+// ✅ DELETE ACCOUNT (Dangerous!)
+router.delete("/me", auth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // 1. Find all chats participanting the user
+    const userChats = await Chat.find({ participants: userId });
+
+    for (const chat of userChats) {
+      if (!chat.isGroup) {
+        // 1:1 Chat => Delete messages and the chat itself
+        await Message.deleteMany({ chat: chat._id });
+        await Chat.findByIdAndDelete(chat._id);
+      } else {
+        // Group Chat => Remove user from participants and admins
+        chat.participants.pull(userId);
+        chat.admins.pull(userId);
+
+        if (chat.participants.length === 0) {
+          // If no one left, delete messages and the group
+          await Message.deleteMany({ chat: chat._id });
+          await Chat.findByIdAndDelete(chat._id);
+        } else {
+          // If others remain, just save the removal
+          await chat.save();
+          // Optionally delete only THIS user's messages in the group?
+          // The request says "deleted including the chats, messages...", 
+          // usually we keep group history but remove the user.
+          // Let's delete this user's messages in group to be thorough about "delete everything".
+          await Message.deleteMany({ chat: chat._id, sender: userId });
+        }
+      }
+    }
+
+    // 2. Delete all statuses
+    await Status.deleteMany({ user: userId });
+
+    // 3. Delete any orphaned messages (just in case)
+    await Message.deleteMany({ sender: userId });
+
+    // 4. Finally, delete the user
+    await User.findByIdAndDelete(userId);
+
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (err) {
+    console.error("Account deletion error:", err);
+    res.status(500).json({ message: "Failed to delete account" });
+  }
 });
 
 
