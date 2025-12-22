@@ -8,6 +8,8 @@ const PendingDelivery = require("./models/PendingDelivery");
  * @param {object} io - The Socket.IO server instance for broadcasting.
  */
 const startReleaseWorker = (io) => {
+    console.log("[Worker] Scheduled message release worker started.");
+
     // Check every 30 seconds
     setInterval(async () => {
         try {
@@ -18,18 +20,26 @@ const startReleaseWorker = (io) => {
                 scheduledAt: { $lte: now }
             }).populate("sender", "full_name phone avatar");
 
-            if (dueMessages.length === 0) return;
-
-            console.log(`[Worker] Releasing ${dueMessages.length} scheduled messages...`);
+            if (dueMessages.length > 0) {
+                console.log(`[Worker] FOUND ${dueMessages.length} DUE MESSAGES AT ${now.toISOString()}`);
+            } else {
+                // console.log(`[Worker] No due messages at ${now.toISOString()}`);
+            }
 
             for (const msg of dueMessages) {
+                console.log(`[Worker] Releasing message: ${msg._id} (Scheduled: ${msg.scheduledAt.toISOString()})`);
+
                 // 1. Mark as released
                 msg.isReleased = true;
                 await msg.save();
+                console.log(`[Worker] Message ${msg._id} marked as isReleased: true`);
 
                 const chatId = String(msg.chat);
                 const chat = await Chat.findById(chatId);
-                if (!chat) continue;
+                if (!chat) {
+                    console.log(`[Worker] Chat ${chatId} not found, skipping.`);
+                    continue;
+                }
 
                 // 2. Update Chat metadata
                 chat.lastMessage = msg.body || (msg.attachments?.length ? "[attachment]" : "[message]");
@@ -54,8 +64,10 @@ const startReleaseWorker = (io) => {
                         deliveredTo.push(pid);
                     } else {
                         // Recipient offline or not in room -> bump unread & create pending
-                        const current = Number(chat.unread.get(pid) || 0);
-                        chat.unread.set(pid, current + 1);
+                        if (chat.unread && typeof chat.unread.get === 'function') {
+                            const current = Number(chat.unread.get(pid) || 0);
+                            chat.unread.set(pid, current + 1);
+                        }
                         await PendingDelivery.create({ user: pid, message: msg._id });
                     }
                 }
@@ -79,6 +91,8 @@ const startReleaseWorker = (io) => {
                     .lean();
 
                 io.to(chatId).emit("message:new", msgPayload);
+                console.log(`[Worker] Broadcasted message:new for ${msg._id} to room ${chatId}`);
+
                 io.to(chatId).emit("chats:update", {
                     chatId,
                     lastMessage: chat.lastMessage,

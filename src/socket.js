@@ -311,7 +311,8 @@ const mountIO = (httpServer, corsOrigin) => {
       }
 
       // ✅ Determine if this is a scheduled message
-      const isScheduled = !!scheduledAt && new Date(scheduledAt) > new Date();
+      // Trust the presence of scheduledAt, even if clocks are slightly out of sync
+      const isScheduled = !!scheduledAt;
 
       let msg = await Message.create({
         chat: chatId,
