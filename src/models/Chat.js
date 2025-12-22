@@ -15,6 +15,8 @@ const chatSchema = new mongoose.Schema({
     key: String
   }],
   pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],        // 👈 pinned
+  archivedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],      // 👈 archived
+  hiddenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],        // 👈 hidden/deleted
   unread: { type: Map, of: Number, default: {} },                             // 👈 unread per userId
 }, { timestamps: true });
 

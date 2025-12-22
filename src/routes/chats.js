@@ -47,14 +47,19 @@ router.get("/", auth, async (req, res) => {
       // Skip non-group chats without a valid other participant
       if (!c.isGroup && !other) return null;
 
+      // Filter out hidden chats unless explicitly requested (handled by frontend logic usually)
+      const isHidden = (c.hiddenBy || []).map(String).includes(userId);
+      if (isHidden) return null;
+
       const unreadCount = Number(c.unread?.[userId] || 0);
       const pinned = (c.pinnedBy || []).map(String).includes(userId);
+      const isArchived = (c.archivedBy || []).map(String).includes(userId);
+
       return {
         id: c._id,
         isGroup: c.isGroup,
         title: c.isGroup ? c.title : (other?.full_name || other?.phone),
         description: c.isGroup ? c.description : undefined,
-        // ✅ Include admins array for groups (as string IDs)
         admins: c.isGroup ? (c.admins || []).map(String) : undefined,
         other: c.isGroup ? undefined : {
           id: other._id, full_name: other.full_name, phone: other.phone,
@@ -66,19 +71,17 @@ router.get("/", auth, async (req, res) => {
         lastEncryptedBody: c.lastEncryptedBody,
         lastEncryptedKeys: c.lastEncryptedKeys,
         unread: unreadCount,
-        pinned
+        pinned,
+        isArchived
       };
     })
-    // Filter out null entries (chats with missing participants)
     .filter(Boolean)
-    // pin sort (pinned first)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || new Date(b.lastAt) - new Date(a.lastAt));
 
   res.json(shaped);
 });
 
-
-// open a chat by phone (create if missing)
+// open a chat by phone (create if missing, unhide/unarchive)
 router.post("/open", auth, async (req, res) => {
   const { targetPhone } = req.body;
   const target = await User.findOne({ phone: targetPhone });
@@ -88,7 +91,19 @@ router.post("/open", auth, async (req, res) => {
   let chat = await Chat.findOne({ participants: { $all: [req.user.id, target._id] } });
   if (!chat) {
     chat = await Chat.create({ participants: [req.user.id, target._id] });
+  } else {
+    // Re-opening an existing chat should un-hide and un-archive it
+    await Chat.updateOne(
+      { _id: chat._id },
+      {
+        $pull: {
+          hiddenBy: req.user.id,
+          archivedBy: req.user.id
+        }
+      }
+    );
   }
+
   res.json({
     id: chat._id,
     other: {
@@ -100,6 +115,32 @@ router.post("/open", auth, async (req, res) => {
       about: target.about
     }
   });
+});
+
+// Archive / Unarchive
+router.post("/:id/archive", auth, async (req, res) => {
+  const { archive } = req.body; // true to archive, false to unarchive
+  const operator = archive ? '$addToSet' : '$pull';
+  await Chat.updateOne({ _id: req.params.id }, { [operator]: { archivedBy: req.user.id } });
+  res.json({ success: true, isArchived: archive });
+});
+
+// Hide / Delete (Mark messages as deleted for user)
+router.post("/:id/hide", auth, async (req, res) => {
+  const chatId = req.params.id;
+  const userId = req.user.id;
+
+  // 1. Mark chat as hidden
+  await Chat.updateOne({ _id: chatId }, { $addToSet: { hiddenBy: userId } });
+
+  // 2. Mark all messages in this chat as deleted for this user
+  const Message = require('../models/Message');
+  await Message.updateMany(
+    { chat: chatId, deletedFor: { $ne: userId } },
+    { $addToSet: { deletedFor: userId } }
+  );
+
+  res.json({ success: true });
 });
 
 // export default router;
