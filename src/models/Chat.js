@@ -5,7 +5,7 @@ const chatSchema = new mongoose.Schema({
   isGroup: { type: Boolean, default: false },     // 👈 groups
   title: String,                                  // 👈 group name
   description: String,                            // 👈 group description
-  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", index: true }],
+  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   admins: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // 👈 admin-only
   lastMessage: String,
   lastAt: Date,

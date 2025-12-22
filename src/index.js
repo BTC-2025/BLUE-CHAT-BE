@@ -92,6 +92,7 @@ async function startServer() {
 
   // ✅ Init Socket.IO
   const io = mountIO(httpServer, process.env.CLIENT_ORIGIN);
+  app.set("io", io); // ✅ Make io accessible in routes
 
   // ✅ Start Release Worker (for scheduled messages)
   const { startReleaseWorker } = require('./releaseWorker');

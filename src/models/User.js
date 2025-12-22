@@ -12,6 +12,8 @@ const userSchema = new mongoose.Schema({
   isOnline: { type: Boolean, default: false },    // 👈 presence
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // 👈 blocked users
   publicKey: String, // 👈 RSA public key for E2EE
+  reportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ users who reported this account
+  isDisabled: { type: Boolean, default: false }, // ✅ account suspension flag
 }, { timestamps: true });
 
 

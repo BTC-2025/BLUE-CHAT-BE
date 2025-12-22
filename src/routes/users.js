@@ -97,6 +97,44 @@ router.delete("/me", auth, async (req, res) => {
 });
 
 
+// Report User
+router.post("/:id/report", auth, async (req, res) => {
+  const targetId = req.params.id;
+  const reporterId = req.user.id;
+
+  if (targetId === reporterId) {
+    return res.status(400).json({ message: "You cannot report yourself" });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      targetId,
+      { $addToSet: { reportedBy: reporterId } },
+      { new: true }
+    );
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Auto-disable if 3 or more reports
+    if (user.reportedBy.length >= 3 && !user.isDisabled) {
+      user.isDisabled = true;
+      await user.save();
+
+      // ✅ Notify user via socket
+      const io = req.app.get("io");
+      if (io) {
+        io.to(String(targetId)).emit("account:disabled");
+      }
+    }
+
+    res.json({ success: true, message: "User reported successfully" });
+  } catch (err) {
+    console.error("Report user error:", err);
+    res.status(500).json({ message: "Failed to report user" });
+  }
+});
+
+
 // export default router;
 
 module.exports = router

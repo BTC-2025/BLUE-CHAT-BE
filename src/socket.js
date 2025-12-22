@@ -259,8 +259,18 @@ const mountIO = (httpServer, corsOrigin) => {
   io.use(async (socket, next) => {
     const { userId } = socket.handshake.auth || {};
     if (!userId) return next(new Error("unauthorized"));
-    socket.data.userId = String(userId);
-    next();
+
+    // ✅ Check if account is disabled
+    try {
+      const user = await User.findById(userId).select("isDisabled");
+      if (!user) return next(new Error("User not found"));
+      if (user.isDisabled) return next(new Error("Account disabled"));
+
+      socket.data.userId = String(userId);
+      next();
+    } catch (err) {
+      next(new Error("Auth error"));
+    }
   });
 
   io.on("connection", async (socket) => {
@@ -274,6 +284,7 @@ const mountIO = (httpServer, corsOrigin) => {
     const rooms = new Set(chats.map(c => String(c._id)));
     userRooms.set(userId, rooms);
     rooms.forEach(r => socket.join(r));
+    socket.join(String(userId)); // ✅ Join private user room
 
     // Typing
     socket.on("typing:start", ({ chatId }) =>

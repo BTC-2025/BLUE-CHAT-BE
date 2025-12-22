@@ -11,6 +11,7 @@ const statusSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Ensure the index is created
-statusSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
+// { timestamps: true } already handles createdAt/updatedAt
+// statusSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
 module.exports = mongoose.model("Status", statusSchema);

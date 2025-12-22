@@ -27,7 +27,7 @@ router.post("/register", async (req, res) => {
   });
 
   const token = jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.status(201).json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar, publicKey: user.publicKey });
+  res.status(201).json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar, publicKey: user.publicKey, isDisabled: user.isDisabled });
 });
 
 router.post("/login", async (req, res) => {
@@ -35,11 +35,15 @@ router.post("/login", async (req, res) => {
   const user = await User.findOne({ phone });
   if (!user) return res.status(404).json({ message: "User not found" });
 
+  if (user.isDisabled) {
+    return res.status(403).json({ message: "Account disabled. Contact admin." });
+  }
+
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(400).json({ message: "Wrong password" });
 
   const token = jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar, publicKey: user.publicKey });
+  res.json({ token, id: user._id, phone: user.phone, full_name: user.full_name, avatar: user.avatar, publicKey: user.publicKey, isDisabled: user.isDisabled });
 });
 
 // export default router;
