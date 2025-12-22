@@ -345,35 +345,46 @@ const mountIO = (httpServer, corsOrigin) => {
         });
       }
 
-      chat.lastMessage = body || (attachments?.length ? "[attachment]" : "");
-      chat.lastAt = msg.createdAt;
-      chat.lastEncryptedBody = encryptedBody || null;
-      chat.lastEncryptedKeys = encryptedKeys || [];
+      // Prepare atomic update for chat metadata
+      const updateData = {
+        $set: {
+          lastMessage: body || (attachments?.length ? "[attachment]" : ""),
+          lastAt: msg.createdAt,
+          lastEncryptedBody: encryptedBody || null,
+          lastEncryptedKeys: encryptedKeys || []
+        },
+        $pull: {
+          hiddenBy: { $in: Array.from(userIdsInRoom) }, // Unhide for those in room (optional logic)
+          archivedBy: { $in: Array.from(userIdsInRoom) }
+        }
+      };
 
-      // Build set of userIds currently in this chat room
-      const socketIdSet = io.sockets.adapter.rooms.get(String(chatId)) || new Set();
-      const userIdsInRoom = new Set();
-      for (const sid of socketIdSet) {
-        const s = io.sockets.sockets.get(sid);
-        if (s?.data?.userId) userIdsInRoom.add(String(s.data.userId));
-      }
-
-      // unread & delivered per recipient
+      // Atomic unread increments for participants NOT in the room
+      const updateQuery = { _id: chatId };
+      const incData = {};
       const deliveredTo = [];
+
       for (const p of chat.participants) {
         const pid = String(p);
         if (pid === userId) continue;
 
         if (userIdsInRoom.has(pid)) {
-          // recipient is viewing this chat now => mark delivered, do NOT bump unread
           deliveredTo.push(pid);
+          // If in room, also ensure it's not hidden/archived for them
+          // (Handled by the $pull in updateData above)
         } else {
-          const current = Number(chat.unread.get(pid) || 0);
-          chat.unread.set(pid, current + 1);
+          // Recipient NOT in room => increment unread atomically
+          incData[`unread.${pid}`] = 1;
           await PendingDelivery.create({ user: pid, message: msg._id });
         }
       }
-      await chat.save();
+
+      if (Object.keys(incData).length > 0) {
+        updateData.$inc = incData;
+      }
+
+      // Perform atomic update
+      await Chat.findByIdAndUpdate(chatId, updateData);
 
       if (deliveredTo.length) {
         await Message.findByIdAndUpdate(msg._id, {
