@@ -346,6 +346,15 @@ const mountIO = (httpServer, corsOrigin) => {
       }
 
       // Prepare atomic update for chat metadata
+      const room = io.sockets.adapter.rooms.get(chatId);
+      const userIdsInRoom = new Set();
+      if (room) {
+        for (const sid of room) {
+          const s = io.sockets.sockets.get(sid);
+          if (s?.data?.userId) userIdsInRoom.add(String(s.data.userId));
+        }
+      }
+
       const updateData = {
         $set: {
           lastMessage: body || (attachments?.length ? "[attachment]" : ""),
@@ -354,7 +363,7 @@ const mountIO = (httpServer, corsOrigin) => {
           lastEncryptedKeys: encryptedKeys || []
         },
         $pull: {
-          hiddenBy: { $in: Array.from(userIdsInRoom) }, // Unhide for those in room (optional logic)
+          hiddenBy: { $in: Array.from(userIdsInRoom) }, // Unhide for those in room
           archivedBy: { $in: Array.from(userIdsInRoom) }
         }
       };

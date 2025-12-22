@@ -22,6 +22,7 @@ router.get("/:chatId", auth, async (req, res) => {
   // We use { $ne: false } to ensure older messages (which don't have this field) are still visible.
   const msgs = await Message.find({
     chat: chatId,
+    deletedFor: { $ne: userId },
     $or: [
       { isReleased: { $ne: false } },
       { sender: userId }

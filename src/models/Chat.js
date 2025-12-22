@@ -18,6 +18,7 @@ const chatSchema = new mongoose.Schema({
   archivedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],      // 👈 archived
   hiddenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],        // 👈 hidden/deleted
   unread: { type: Map, of: Number, default: {} },                             // 👈 unread per userId
+  clearedAt: { type: Map, of: Date, default: {} },                         // ✅ last clear time per userId
 }, { timestamps: true });
 
 

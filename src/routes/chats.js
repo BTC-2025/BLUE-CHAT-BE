@@ -54,6 +54,10 @@ router.get("/", auth, async (req, res) => {
       const unreadCount = Number(c.unread?.[userId] || 0);
       const pinned = (c.pinnedBy || []).map(String).includes(userId);
       const isArchived = (c.archivedBy || []).map(String).includes(userId);
+      const userClearedAt = c.clearedAt?.[userId] ? new Date(c.clearedAt[userId]) : null;
+
+      // Mask last message if it was cleared by the user
+      const isCleared = userClearedAt && c.lastAt && new Date(c.lastAt) <= userClearedAt;
 
       return {
         id: c._id,
@@ -66,13 +70,13 @@ router.get("/", auth, async (req, res) => {
           avatar: other.avatar, isOnline: other.isOnline, lastSeen: other.lastSeen,
           publicKey: other.publicKey, email: other.email, about: other.about
         },
-        lastMessage: c.lastMessage,
-        lastAt: c.lastAt,
-        lastEncryptedBody: c.lastEncryptedBody,
-        lastEncryptedKeys: c.lastEncryptedKeys,
+        lastMessage: isCleared ? "" : c.lastMessage,
+        lastAt: isCleared ? null : c.lastAt,
+        lastEncryptedBody: isCleared ? null : c.lastEncryptedBody,
+        lastEncryptedKeys: isCleared ? [] : c.lastEncryptedKeys,
         unread: unreadCount,
-        pinned,
-        isArchived
+        isPinned: pinned,
+        isArchived: isArchived
       };
     })
     .filter(Boolean)
@@ -134,6 +138,25 @@ router.post("/:id/hide", auth, async (req, res) => {
   await Chat.updateOne({ _id: chatId }, { $addToSet: { hiddenBy: userId } });
 
   // 2. Mark all messages in this chat as deleted for this user
+  const Message = require('../models/Message');
+  await Message.updateMany(
+    { chat: chatId, deletedFor: { $ne: userId } },
+    { $addToSet: { deletedFor: userId } }
+  );
+
+  res.json({ success: true });
+});
+
+// Clear Chat (Mark all messages as deleted for user without hiding chat)
+router.post("/:id/clear", auth, async (req, res) => {
+  const chatId = req.params.id;
+  const userId = req.user.id;
+
+  // Update clearedAt timestamp for this user
+  await Chat.findByIdAndUpdate(chatId, {
+    $set: { [`clearedAt.${userId}`]: new Date() }
+  });
+
   const Message = require('../models/Message');
   await Message.updateMany(
     { chat: chatId, deletedFor: { $ne: userId } },
