@@ -67,7 +67,15 @@ router.get("/:chatId", auth, async (req, res) => {
     return res.sendStatus(403);
 
   // Fetch messages sorted by time, populate sender info for group chats
-  const msgs = await Message.find({ chat: chatId })
+  // ✅ ENFORCE RELEASE FILTER: Recipients should NOT see scheduled messages before release.
+  // We use { $ne: false } to ensure older messages (which don't have this field) are still visible.
+  const msgs = await Message.find({
+    chat: chatId,
+    $or: [
+      { isReleased: { $ne: false } },
+      { sender: userId }
+    ]
+  })
     .populate("sender", "full_name phone avatar")
     .populate({
       path: "replyTo",
