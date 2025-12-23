@@ -24,6 +24,17 @@ router.get("/me", auth, async (req, res) => {
   res.json(me);
 });
 
+// ✅ Fetch blocked users list
+router.get("/blocked", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate("blockedUsers", "full_name phone avatar about");
+    res.json(user.blockedUsers || []);
+  } catch (err) {
+    console.error("Fetch blocked list error:", err);
+    res.status(500).json({ message: "Failed to fetch blocked users" });
+  }
+});
+
 router.patch("/me", auth, async (req, res) => {
   const { full_name, about, avatar, email } = req.body;
   const me = await User.findByIdAndUpdate(req.user.id, { full_name, about, avatar, email }, { new: true }).select("-password_hash");
