@@ -161,7 +161,7 @@ router.get("/:id", auth, async (req, res) => {
     members: chat.participants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone })),
     admins: chat.admins.map(a => String(a._id)),
     inviteCode: chat.inviteCode,
-    pendingParticipants: chat.admins.map(String).includes(req.user.id)
+    pendingParticipants: chat.admins.some(a => String(a._id) === req.user.id)
       ? chat.pendingParticipants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone }))
       : []
   });
