@@ -43,6 +43,8 @@
 
 const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config(); // ✅ Load env vars early
+
 const cors = require('cors');
 const { createServer } = require('http');
 const { connectDB } = require('./db.js');
@@ -56,8 +58,6 @@ const statusRoutes = require('./routes/status.js');
 const callRoutes = require('./routes/calls.js'); // ✅ Added
 const notificationRoutes = require('./routes/notifications.js'); // ✅ Added
 const { mountIO } = require('./socket.js');
-
-dotenv.config();
 
 async function startServer() {
   const app = express();
