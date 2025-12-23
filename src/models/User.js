@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema({
   reportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ users who reported this account
   isDisabled: { type: Boolean, default: false }, // ✅ account suspension flag
   pushSubscriptions: { type: Array, default: [] }, // ✅ push notification tokens
+  messageRetentionDays: { type: Number, default: 0 }, // ✅ 0 = Disabled, 1 = 24h, 7 = 7d, 30 = 30d
 }, { timestamps: true });
 
 

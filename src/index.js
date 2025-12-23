@@ -98,9 +98,11 @@ async function startServer() {
   const io = mountIO(httpServer, process.env.CLIENT_ORIGIN);
   app.set("io", io); // ✅ Make io accessible in routes
 
-  // ✅ Start Release Worker (for scheduled messages)
+  // ✅ Start Workers
   const { startReleaseWorker } = require('./releaseWorker');
+  const { startRetentionWorker } = require('./retentionWorker'); // ✅ Added
   startReleaseWorker(io);
+  startRetentionWorker(); // ✅ Added
 
   // Start server
   httpServer.listen(process.env.PORT, () => {

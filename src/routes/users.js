@@ -58,6 +58,17 @@ router.patch("/update-public-key", auth, async (req, res) => {
   res.json(user);
 });
 
+// ✅ Update Message Retention Setting
+router.patch("/retention", auth, async (req, res) => {
+  const { days } = req.body;
+  try {
+    const user = await User.findByIdAndUpdate(req.user.id, { messageRetentionDays: days }, { new: true }).select("-password_hash");
+    res.json({ success: true, messageRetentionDays: user.messageRetentionDays });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update retention setting" });
+  }
+});
+
 // ✅ DELETE ACCOUNT (Dangerous!)
 router.delete("/me", auth, async (req, res) => {
   const userId = req.user.id;
