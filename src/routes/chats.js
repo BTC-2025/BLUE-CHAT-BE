@@ -85,6 +85,45 @@ router.get("/", auth, async (req, res) => {
   res.json(shaped);
 });
 
+// ✅ Fetch single chat metadata
+router.get("/:id", auth, async (req, res) => {
+  const userId = req.user.id;
+  const chat = await Chat.findById(req.params.id)
+    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about")
+    .lean();
+
+  if (!chat || !chat.participants.some(p => String(p._id) === userId)) {
+    return res.status(404).json({ message: "Chat not found" });
+  }
+
+  const others = chat.participants.filter(p => p && String(p._id) !== userId);
+  const other = chat.isGroup ? null : others[0];
+
+  const unreadCount = Number(chat.unread?.[userId] || 0);
+  const pinned = (chat.pinnedBy || []).map(String).includes(userId);
+  const isArchived = (chat.archivedBy || []).map(String).includes(userId);
+
+  res.json({
+    id: chat._id,
+    isGroup: chat.isGroup,
+    title: chat.isGroup ? chat.title : (other?.full_name || other?.phone),
+    description: chat.isGroup ? chat.description : undefined,
+    admins: chat.isGroup ? (chat.admins || []).map(String) : undefined,
+    other: chat.isGroup ? undefined : {
+      id: other?._id, full_name: other?.full_name, phone: other?.phone,
+      avatar: other?.avatar, isOnline: other?.isOnline, lastSeen: other?.lastSeen,
+      publicKey: other?.publicKey, email: other?.email, about: other?.about
+    },
+    lastMessage: chat.lastMessage,
+    lastAt: chat.lastAt,
+    lastEncryptedBody: chat.lastEncryptedBody,
+    lastEncryptedKeys: chat.lastEncryptedKeys,
+    unread: unreadCount,
+    isPinned: pinned,
+    isArchived: isArchived
+  });
+});
+
 // open a chat by phone (create if missing, unhide/unarchive)
 router.post("/open", auth, async (req, res) => {
   const { targetPhone } = req.body;

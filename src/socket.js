@@ -416,6 +416,12 @@ const mountIO = (httpServer, corsOrigin) => {
       }
 
       io.to(chatId).emit("message:new", msg);
+
+      // ✅ Also emit to each participant's private room to ensure real-time discovery
+      chat.participants.forEach(p => {
+        io.to(String(p)).emit("message:new", msg);
+      });
+
       io.to(chatId).emit("chats:update", {
         chatId,
         lastMessage: chat.lastMessage,

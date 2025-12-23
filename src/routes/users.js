@@ -116,7 +116,7 @@ router.post("/:id/report", auth, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Auto-disable if 3 or more reports
-    if (user.reportedBy.length >= 3 && !user.isDisabled) {
+    if (user.reportedBy.length >= 5 && !user.isDisabled) {
       user.isDisabled = true;
       await user.save();
 
