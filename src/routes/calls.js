@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/auth");
+const auth = require("../middleware/auth").auth;
 const Call = require("../models/Call");
 
 // ✅ Fetch call history for authenticated user
-router.get("/", auth, async (req, res) => {
+router.get("/get-calls", auth, async (req, res) => {
     try {
         const userId = req.user.id;
         const calls = await Call.find({
