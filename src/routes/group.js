@@ -143,7 +143,8 @@ router.post("/:id/admins", auth, async (req, res) => {
 router.get("/:id", auth, async (req, res) => {
   const chat = await Chat.findById(req.params.id)
     .populate("participants", "full_name phone")
-    .populate("admins", "_id");
+    .populate("admins", "_id")
+    .populate("pendingParticipants", "full_name phone");
 
   if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
 
@@ -159,7 +160,10 @@ router.get("/:id", auth, async (req, res) => {
     description: chat.description,
     members: chat.participants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone })),
     admins: chat.admins.map(a => String(a._id)),
-    inviteCode: chat.inviteCode
+    inviteCode: chat.inviteCode,
+    pendingParticipants: chat.admins.map(String).includes(req.user.id)
+      ? chat.pendingParticipants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone }))
+      : []
   });
 });
 
@@ -195,10 +199,6 @@ router.post("/:id/leave", auth, async (req, res) => {
   }
 });
 
-/**
- * POST /api/groups/:id/invite
- * Generate/get invite link (Admin only)
- */
 router.post("/:id/invite", auth, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.id);
@@ -210,7 +210,8 @@ router.post("/:id/invite", auth, async (req, res) => {
     }
 
     if (!chat.inviteCode) {
-      chat.inviteCode = crypto.randomBytes(4).toString('hex'); // 8 chars
+      // ✅ Generate 6-digit numeric code
+      chat.inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
       await chat.save();
     }
 
@@ -231,17 +232,50 @@ router.post("/join/:inviteCode", auth, async (req, res) => {
     if (!chat) return res.status(404).json({ message: "Invalid invite code" });
 
     const userId = req.user.id;
-    if (chat.participants.map(String).includes(userId)) {
-      return res.status(400).json({ message: "You already belong to this group" });
+    if (chat.participants.map(String).includes(userId) || chat.pendingParticipants.map(String).includes(userId)) {
+      return res.status(400).json({ message: "You are already a member or pending approval" });
     }
 
-    chat.participants.push(userId);
+    chat.pendingParticipants.push(userId);
     await chat.save();
 
-    res.json({ success: true, chatId: chat._id });
+    res.json({ success: true, message: "Request sent to admins" });
   } catch (err) {
     console.error("Join group error:", err);
     res.status(500).json({ message: "Failed to join group" });
+  }
+});
+
+/**
+ * POST /api/groups/:id/approve
+ * Admin approves or rejects a pending participant
+ */
+router.post("/:id/approve", auth, async (req, res) => {
+  try {
+    const { targetUserId, approve } = req.body;
+    const chat = await Chat.findById(req.params.id);
+    if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
+
+    // Only admins can approve
+    if (!chat.admins.map(String).includes(req.user.id)) {
+      return res.status(403).json({ message: "Only admins can approve requests" });
+    }
+
+    if (!chat.pendingParticipants.map(String).includes(targetUserId)) {
+      return res.status(400).json({ message: "User is not in pending list" });
+    }
+
+    chat.pendingParticipants.pull(targetUserId);
+
+    if (approve === true) {
+      chat.participants.addToSet(targetUserId);
+    }
+
+    await chat.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Approve error:", err);
+    res.status(500).json({ message: "Failed to process request" });
   }
 });
 

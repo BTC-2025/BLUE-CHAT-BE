@@ -20,6 +20,7 @@ const chatSchema = new mongoose.Schema({
   unread: { type: Map, of: Number, default: {} },                             // 👈 unread per userId
   clearedAt: { type: Map, of: Date, default: {} },                         // ✅ last clear time per userId
   inviteCode: { type: String, unique: true, sparse: true },                // ✅ for group join links
+  pendingParticipants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ users awaiting approval
 }, { timestamps: true });
 
 
