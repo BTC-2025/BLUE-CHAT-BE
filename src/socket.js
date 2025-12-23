@@ -241,6 +241,7 @@ const User = require("./models/User.js");
 const Chat = require("./models/Chat.js");
 const Message = require("./models/Message.js");
 const PendingDelivery = require("./models/PendingDelivery.js");
+const Call = require("./models/Call.js"); // ✅ Added
 
 // memory maps
 const onlineUsers = new Map(); // socketId -> { userId }
@@ -852,6 +853,14 @@ const mountIO = (httpServer, corsOrigin) => {
     // Initiate a call
     socket.on("call:initiate", async ({ targetUserId, callType }, callback) => {
       try {
+        // Log the call start
+        const call = await Call.create({
+          caller: userId,
+          receiver: targetUserId,
+          type: callType,
+          status: "initiated"
+        });
+
         // Find target user's socket
         let targetSocketId = null;
         for (const [socketId, userData] of onlineUsers.entries()) {
@@ -862,6 +871,9 @@ const mountIO = (httpServer, corsOrigin) => {
         }
 
         if (!targetSocketId) {
+          // If offline, it's a missed call
+          call.status = "missed";
+          await call.save();
           return callback?.({ success: false, error: "User is offline" });
         }
 
@@ -870,13 +882,14 @@ const mountIO = (httpServer, corsOrigin) => {
 
         // Send incoming call to target
         io.to(targetSocketId).emit("call:incoming", {
+          callId: call._id, // ✅ Pass callId
           callerId: userId,
           callerName: caller?.full_name || caller?.phone || "Unknown",
           callerAvatar: caller?.avatar,
           callType // "video" or "audio"
         });
 
-        callback?.({ success: true });
+        callback?.({ success: true, callId: call._id });
       } catch (err) {
         console.error("Call initiate error:", err);
         callback?.({ success: false, error: err.message });
@@ -884,23 +897,37 @@ const mountIO = (httpServer, corsOrigin) => {
     });
 
     // Accept incoming call
-    socket.on("call:accept", async ({ callerId }) => {
-      // Find caller's socket
-      for (const [socketId, userData] of onlineUsers.entries()) {
-        if (userData.userId === callerId) {
-          io.to(socketId).emit("call:accepted", { recipientId: userId });
-          break;
+    socket.on("call:accept", async ({ callId, callerId }) => {
+      try {
+        if (callId) {
+          await Call.findByIdAndUpdate(callId, { status: "completed", startedAt: new Date() });
         }
+        // Find caller's socket
+        for (const [socketId, userData] of onlineUsers.entries()) {
+          if (userData.userId === callerId) {
+            io.to(socketId).emit("call:accepted", { recipientId: userId });
+            break;
+          }
+        }
+      } catch (err) {
+        console.error("Accept call error:", err);
       }
     });
 
     // Reject incoming call
-    socket.on("call:reject", async ({ callerId }) => {
-      for (const [socketId, userData] of onlineUsers.entries()) {
-        if (userData.userId === callerId) {
-          io.to(socketId).emit("call:rejected", { recipientId: userId });
-          break;
+    socket.on("call:reject", async ({ callId, callerId }) => {
+      try {
+        if (callId) {
+          await Call.findByIdAndUpdate(callId, { status: "declined" });
         }
+        for (const [socketId, userData] of onlineUsers.entries()) {
+          if (userData.userId === callerId) {
+            io.to(socketId).emit("call:rejected", { recipientId: userId });
+            break;
+          }
+        }
+      } catch (err) {
+        console.error("Reject call error:", err);
       }
     });
 
@@ -935,12 +962,19 @@ const mountIO = (httpServer, corsOrigin) => {
     });
 
     // End call
-    socket.on("call:end", ({ targetUserId }) => {
-      for (const [socketId, userData] of onlineUsers.entries()) {
-        if (userData.userId === targetUserId) {
-          io.to(socketId).emit("call:ended", { endedBy: userId });
-          break;
+    socket.on("call:end", async ({ callId, targetUserId, duration }) => {
+      try {
+        if (callId && duration !== undefined) {
+          await Call.findByIdAndUpdate(callId, { duration, endedAt: new Date() });
         }
+        for (const [socketId, userData] of onlineUsers.entries()) {
+          if (userData.userId === targetUserId) {
+            io.to(socketId).emit("call:ended", { endedBy: userId });
+            break;
+          }
+        }
+      } catch (err) {
+        console.error("End call error:", err);
       }
     });
 
