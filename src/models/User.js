@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema({
   publicKey: String, // 👈 RSA public key for E2EE
   reportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ users who reported this account
   isDisabled: { type: Boolean, default: false }, // ✅ account suspension flag
+  pushSubscriptions: { type: Array, default: [] }, // ✅ push notification tokens
 }, { timestamps: true });
 
 

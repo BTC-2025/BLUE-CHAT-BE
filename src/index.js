@@ -54,6 +54,7 @@ const groupRoutes = require('./routes/group.js');
 const uploadRoutes = require('./routes/upload.js');
 const statusRoutes = require('./routes/status.js');
 const callRoutes = require('./routes/calls.js'); // ✅ Added
+const notificationRoutes = require('./routes/notifications.js'); // ✅ Added
 const { mountIO } = require('./socket.js');
 
 dotenv.config();
@@ -86,6 +87,7 @@ async function startServer() {
   app.use("/api/upload", uploadRoutes);
   app.use("/api/status", statusRoutes);
   app.use("/api/calls", callRoutes); // ✅ Added
+  app.use("/api/notifications", notificationRoutes); // ✅ Added
 
   // ✅ DB connect (inside async function)
   await connectDB(process.env.MONGO_URI);
