@@ -19,6 +19,7 @@ const chatSchema = new mongoose.Schema({
   hiddenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],        // 👈 hidden/deleted
   unread: { type: Map, of: Number, default: {} },                             // 👈 unread per userId
   clearedAt: { type: Map, of: Date, default: {} },                         // ✅ last clear time per userId
+  inviteCode: { type: String, unique: true, sparse: true },                // ✅ for group join links
 }, { timestamps: true });
 
 

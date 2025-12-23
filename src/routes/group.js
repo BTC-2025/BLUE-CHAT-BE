@@ -4,6 +4,7 @@ const router = express.Router();
 const Chat = require("../models/Chat");
 const User = require("../models/User");
 const { auth } = require("../middleware/auth");
+const crypto = require("crypto");
 
 // helper: find user by phone or 404
 async function findUserByPhoneOr404(phone, res) {
@@ -158,7 +159,90 @@ router.get("/:id", auth, async (req, res) => {
     description: chat.description,
     members: chat.participants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone })),
     admins: chat.admins.map(a => String(a._id)),
+    inviteCode: chat.inviteCode
   });
+});
+
+/**
+ * POST /api/groups/:id/leave
+ * user leaves the group
+ */
+router.post("/:id/leave", auth, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.id);
+    if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
+
+    const userId = req.user.id;
+    if (!chat.participants.map(String).includes(userId)) {
+      return res.status(400).json({ message: "You are not a member of this group" });
+    }
+
+    // Remove from participants and admins
+    chat.participants.pull(userId);
+    chat.admins.pull(userId);
+
+    // ✅ Admin Succession: if no admins left, promote the oldest member
+    if (chat.admins.length === 0 && chat.participants.length > 0) {
+      const nextAdminId = chat.participants[0];
+      chat.admins.push(nextAdminId);
+    }
+
+    await chat.save();
+    res.json({ success: true, message: "Left group successfully" });
+  } catch (err) {
+    console.error("Leave group error:", err);
+    res.status(500).json({ message: "Failed to leave group" });
+  }
+});
+
+/**
+ * POST /api/groups/:id/invite
+ * Generate/get invite link (Admin only)
+ */
+router.post("/:id/invite", auth, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.id);
+    if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
+
+    // Only admins can generate/view invite link
+    if (!chat.admins.map(String).includes(req.user.id)) {
+      return res.status(403).json({ message: "Only admins can manage invite links" });
+    }
+
+    if (!chat.inviteCode) {
+      chat.inviteCode = crypto.randomBytes(4).toString('hex'); // 8 chars
+      await chat.save();
+    }
+
+    res.json({ success: true, inviteCode: chat.inviteCode });
+  } catch (err) {
+    console.error("Invite error:", err);
+    res.status(500).json({ message: "Failed to manage invite link" });
+  }
+});
+
+/**
+ * POST /api/groups/join/:inviteCode
+ * Join a group using an invite code
+ */
+router.post("/join/:inviteCode", auth, async (req, res) => {
+  try {
+    const chat = await Chat.findOne({ inviteCode: req.params.inviteCode });
+    if (!chat) return res.status(404).json({ message: "Invalid invite code" });
+
+    const userId = req.user.id;
+    if (chat.participants.map(String).includes(userId)) {
+      return res.status(400).json({ message: "You already belong to this group" });
+    }
+
+    chat.participants.push(userId);
+    await chat.save();
+
+    res.json({ success: true, chatId: chat._id });
+  } catch (err) {
+    console.error("Join group error:", err);
+    res.status(500).json({ message: "Failed to join group" });
+  }
 });
 
 module.exports = router;
