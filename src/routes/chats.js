@@ -68,7 +68,7 @@ router.get("/", auth, async (req, res) => {
       return {
         id: c._id,
         isGroup: c.isGroup,
-        title: c.isGroup ? c.title : (isSelfChat ? "Message Yourself" : (other?.full_name || other?.phone)),
+        title: c.isGroup ? c.title : (isSelfChat ? "Me" : (other?.full_name || other?.phone)),
         description: c.isGroup ? c.description : undefined,
         admins: c.isGroup ? (c.admins || []).map(String) : undefined,
         other: c.isGroup ? undefined : {
@@ -83,7 +83,8 @@ router.get("/", auth, async (req, res) => {
         lastEncryptedKeys: isCleared ? [] : c.lastEncryptedKeys,
         unread: unreadCount,
         isPinned: pinned,
-        isArchived: isArchived
+        isArchived: isArchived,
+        isSelfChat: isSelfChat
       };
     })
     .filter(Boolean)
@@ -113,7 +114,7 @@ router.get("/:id", auth, async (req, res) => {
   res.json({
     id: chat._id,
     isGroup: chat.isGroup,
-    title: chat.isGroup ? chat.title : (others.length === 0 ? "Message Yourself" : (other?.full_name || other?.phone)),
+    title: chat.isGroup ? chat.title : (others.length === 0 ? "Me" : (other?.full_name || other?.phone)),
     description: chat.isGroup ? chat.description : undefined,
     admins: chat.isGroup ? (chat.admins || []).map(String) : undefined,
     other: chat.isGroup ? undefined : {
@@ -128,7 +129,8 @@ router.get("/:id", auth, async (req, res) => {
     lastEncryptedKeys: chat.lastEncryptedKeys,
     unread: unreadCount,
     isPinned: pinned,
-    isArchived: isArchived
+    isArchived: isArchived,
+    isSelfChat: others.length === 0
   });
 });
 
@@ -171,7 +173,8 @@ router.post("/open", auth, async (req, res) => {
   const isSelfChat = String(target._id) === req.user.id;
   res.json({
     id: chat._id,
-    title: isSelfChat ? "Message Yourself" : (target.full_name || target.phone),
+    title: isSelfChat ? "Me" : (target.full_name || target.phone),
+    isSelfChat: isSelfChat,
     other: {
       id: target._id,
       full_name: target.full_name,
