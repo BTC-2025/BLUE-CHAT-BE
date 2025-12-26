@@ -1,63 +1,59 @@
 const Message = require("./models/Message");
 const User = require("./models/User");
+const Chat = require("./models/Chat");
+const mongoose = require("mongoose");
 
-/**
- * Retention Worker
- * 
- * Periodically scans for users with a message retention policy
- * and marks older messages as 'deletedFor' that user.
- */
 const runRetentionCleanup = async () => {
-    console.log("🧹 Running Message Retention Cleanup...");
+    console.log("🧹 [RetentionWorker] Starting cleanup cycle...");
     try {
-        // 1. Find all users who have a retention policy
-        const users = await User.find({ messageRetentionDays: { $gt: 0 } }).select("_id messageRetentionDays");
+        const users = await User.find({ messageRetentionDays: { $gt: 0 } }).select("_id messageRetentionDays full_name");
 
         if (users.length === 0) {
-            console.log("✨ No retention policies active.");
+            console.log("✨ [RetentionWorker] No active retention policies found.");
             return;
         }
+
+        console.log(`🔍 [RetentionWorker] Found ${users.length} users with active policies.`);
 
         let totalMessagesUpdated = 0;
 
         for (const user of users) {
             const userId = user._id;
             const days = user.messageRetentionDays;
+            const userObjectId = new mongoose.Types.ObjectId(userId);
 
-            // Calculate threshold date (e.g., 24h, 7d, 30d ago)
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - days);
 
-            // Find messages for this user that:
-            // - Are older than cutoffDate
-            // - Are NOT already marked as deletedFor this user
-            // - ARE related to this user (sender OR part of a chat involving this user)
-            // Note: Since 'deletedFor' hides it from the UI, we just need to target all messages
-            // where this user is a participant. To keep it simple and efficient, we update messages
-            // that this user HASN'T deleted yet.
+            console.log(`   👉 Processing "${user.full_name}" (Policy=${days}d, Cutoff=${cutoffDate.toISOString()})`);
 
+            // 1. Find all chats this user is in
+            const userChats = await Chat.find({ participants: userId }).select("_id");
+            const chatIds = userChats.map(c => c._id);
+
+            if (chatIds.length === 0) continue;
+
+            // 2. Mark old messages in THESE chats as deleted for THIS user
             const result = await Message.updateMany(
                 {
+                    chat: { $in: chatIds },
                     createdAt: { $lt: cutoffDate },
-                    deletedFor: { $ne: userId },
-                    // We only want to target chats where this user is a participant.
-                    // However, we don't store participant list in the Message model directly.
-                    // Instead, we can join with Chat, but updateMany doesn't support joins well.
-                    // Simpler approach: update ALL messages older than X where user isn't in deletedFor.
-                    // This is safe because if the user isn't in the chat, they wouldn't see it anyway.
+                    deletedFor: { $ne: userObjectId },
                 },
                 {
-                    $addToSet: { deletedFor: userId }
+                    $addToSet: { deletedFor: userObjectId }
                 }
             );
 
-            totalMessagesUpdated += result.modifiedCount;
-            // console.log(`   ✅ User ${userId}: Processed ${result.modifiedCount} expired messages.`);
+            if (result.modifiedCount > 0) {
+                console.log(`   ✅ [RetentionWorker] Resolved ${result.modifiedCount} expired messages for ${user.full_name}.`);
+                totalMessagesUpdated += result.modifiedCount;
+            }
         }
 
-        console.log(`🎊 Cleanup complete. Total messages processed: ${totalMessagesUpdated}`);
+        console.log(`🎊 [RetentionWorker] Cycle complete. Total messages processed: ${totalMessagesUpdated}`);
     } catch (err) {
-        console.error("❌ Retention Cleanup Error:", err);
+        console.error("❌ [RetentionWorker] ERROR:", err);
     }
 };
 
@@ -65,8 +61,8 @@ const startRetentionWorker = () => {
     // Run immediately on start
     runRetentionCleanup();
 
-    // Then run every hour
-    setInterval(runRetentionCleanup, 60 * 60 * 1000);
+    // Then run every 5 minutes while we verify the feature
+    setInterval(runRetentionCleanup, 5 * 60 * 1000);
 };
 
 module.exports = { startRetentionWorker };

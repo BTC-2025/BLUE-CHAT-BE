@@ -42,9 +42,15 @@ router.get("/", auth, async (req, res) => {
   const shaped = chats
     .map(c => {
       const others = c.participants.filter(p => p && String(p._id) !== userId);
-      const other = c.isGroup ? null : others[0];
+      let other = c.isGroup ? null : others[0];
+      const isSelfChat = !c.isGroup && others.length === 0;
 
-      // Skip non-group chats without a valid other participant
+      if (isSelfChat) {
+        // Self-chat: Use the user themselves as "other"
+        other = c.participants.find(p => p && String(p._id) === userId);
+      }
+
+      // Skip non-group chats without a valid other participant (unless it's a self-chat)
       if (!c.isGroup && !other) return null;
 
       // Filter out hidden chats unless explicitly requested (handled by frontend logic usually)
@@ -62,7 +68,7 @@ router.get("/", auth, async (req, res) => {
       return {
         id: c._id,
         isGroup: c.isGroup,
-        title: c.isGroup ? c.title : (other?.full_name || other?.phone),
+        title: c.isGroup ? c.title : (isSelfChat ? "Message Yourself" : (other?.full_name || other?.phone)),
         description: c.isGroup ? c.description : undefined,
         admins: c.isGroup ? (c.admins || []).map(String) : undefined,
         other: c.isGroup ? undefined : {
@@ -107,7 +113,7 @@ router.get("/:id", auth, async (req, res) => {
   res.json({
     id: chat._id,
     isGroup: chat.isGroup,
-    title: chat.isGroup ? chat.title : (other?.full_name || other?.phone),
+    title: chat.isGroup ? chat.title : (others.length === 0 ? "Message Yourself" : (other?.full_name || other?.phone)),
     description: chat.isGroup ? chat.description : undefined,
     admins: chat.isGroup ? (chat.admins || []).map(String) : undefined,
     other: chat.isGroup ? undefined : {
@@ -131,11 +137,24 @@ router.post("/open", auth, async (req, res) => {
   const { targetPhone } = req.body;
   const target = await User.findOne({ phone: targetPhone });
   if (!target) return res.status(404).json({ message: "Target not found" });
-  if (String(target._id) === req.user.id) return res.status(400).json({ message: "Cannot chat with yourself" });
+  // if (String(target._id) === req.user.id) return res.status(400).json({ message: "Cannot chat with yourself" });
 
-  let chat = await Chat.findOne({ participants: { $all: [req.user.id, target._id] } });
+  // Use $size: 1 for self-chats, or standard $all for 2-participant chats
+  let query = {
+    isGroup: false,
+    participants: { $all: [req.user.id, target._id] }
+  };
+
+  if (String(target._id) === req.user.id) {
+    query.participants = { $size: 1, $all: [req.user.id] };
+  }
+
+  let chat = await Chat.findOne(query);
   if (!chat) {
-    chat = await Chat.create({ participants: [req.user.id, target._id] });
+    chat = await Chat.create({
+      isGroup: false,
+      participants: String(target._id) === req.user.id ? [req.user.id] : [req.user.id, target._id]
+    });
   } else {
     // Re-opening an existing chat should un-hide and un-archive it
     await Chat.updateOne(
@@ -149,12 +168,15 @@ router.post("/open", auth, async (req, res) => {
     );
   }
 
+  const isSelfChat = String(target._id) === req.user.id;
   res.json({
     id: chat._id,
+    title: isSelfChat ? "Message Yourself" : (target.full_name || target.phone),
     other: {
       id: target._id,
       full_name: target.full_name,
       phone: target.phone,
+      avatar: target.avatar,
       publicKey: target.publicKey,
       email: target.email,
       about: target.about
