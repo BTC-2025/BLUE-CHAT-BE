@@ -9,12 +9,13 @@ const router = express.Router();
 // ✅ Create status
 router.post("/", auth, async (req, res) => {
     try {
-        const { content, type, backgroundColor } = req.body;
+        const { content, type, backgroundColor, visibleTo } = req.body;
         const newStatus = new Status({
             user: req.user.id,
             content,
             type: type || "image",
-            backgroundColor: backgroundColor || "#000000"
+            backgroundColor: backgroundColor || "#000000",
+            visibleTo: visibleTo || []
         });
         await newStatus.save();
         res.status(201).json(newStatus);
@@ -38,10 +39,24 @@ router.get("/", auth, async (req, res) => {
             chat.participants.find(p => p.toString() !== req.user.id)
         ).filter(id => id); // Remove any nulls
 
-        // 3. Fetch statuses where the user is either the current user or one of their contacts
-        const allowedUserIds = [req.user.id, ...contactIds];
-
-        const statuses = await Status.find({ user: { $in: allowedUserIds } })
+        // 3. Fetch statuses with privacy filtering
+        // Logic: 
+        // - I can see MY OWN statuses
+        // - I can see statuses from MY CONTACTS if:
+        //    a) visibleTo is empty (default - all contacts)
+        //    b) my ID is in visibleTo (explicitly shared with me)
+        const statuses = await Status.find({
+            $or: [
+                { user: req.user.id },
+                {
+                    user: { $in: contactIds },
+                    $or: [
+                        { visibleTo: { $size: 0 } },
+                        { visibleTo: req.user.id }
+                    ]
+                }
+            ]
+        })
             .populate("user", "full_name phone avatar")
             .populate({
                 path: "viewedBy",

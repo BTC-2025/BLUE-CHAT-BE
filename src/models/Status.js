@@ -6,6 +6,7 @@ const statusSchema = new mongoose.Schema({
     type: { type: String, enum: ["image", "text"], default: "image" },
     backgroundColor: { type: String, default: "#000000" }, // For text statuses
     viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    visibleTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ Status Privacy: Whitelist of viewers
     // TTL Index: Automatically delete document after 24 hours (86400 seconds)
     createdAt: { type: Date, default: Date.now, expires: 86400 }
 }, { timestamps: true });

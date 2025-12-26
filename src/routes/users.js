@@ -35,6 +35,25 @@ router.get("/blocked", auth, async (req, res) => {
   }
 });
 
+// ✅ Fetch contacts (people you have 1:1 chats with)
+router.get("/contacts", auth, async (req, res) => {
+  try {
+    const chats = await Chat.find({
+      isGroup: false,
+      participants: req.user.id
+    }).populate("participants", "full_name phone avatar");
+
+    const contacts = chats.map(chat =>
+      chat.participants.find(p => String(p._id) !== req.user.id)
+    ).filter(Boolean);
+
+    res.json(contacts);
+  } catch (err) {
+    console.error("Fetch contacts error:", err);
+    res.status(500).json({ message: "Failed to fetch contacts" });
+  }
+});
+
 router.patch("/me", auth, async (req, res) => {
   const { full_name, about, avatar, email } = req.body;
   const me = await User.findByIdAndUpdate(req.user.id, { full_name, about, avatar, email }, { new: true }).select("-password_hash");
