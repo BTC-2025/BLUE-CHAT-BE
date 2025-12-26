@@ -104,12 +104,19 @@ const mountIO = (httpServer, corsOrigin) => {
           const senderBlocked = sender?.blockedUsers?.map(String).includes(String(otherUserId));
           const recipientBlocked = recipient?.blockedUsers?.map(String).includes(String(userId));
 
+          // ✅ Check if sender reported recipient (should not be able to message them)
+          const reportedBySender = recipient?.reportedBy?.map(String).includes(String(userId));
+
           if (senderBlocked) {
             socket.emit("message:error", { error: "You have blocked this user. Unblock to send messages." });
             return;
           }
           if (recipientBlocked) {
             socket.emit("message:error", { error: "You cannot send messages to this user." });
+            return;
+          }
+          if (reportedBySender) {
+            socket.emit("message:error", { error: "You have reported this user. Communication is disabled." });
             return;
           }
         }

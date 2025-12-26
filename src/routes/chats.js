@@ -36,7 +36,7 @@ router.get("/", auth, async (req, res) => {
   const userId = req.user.id;
   const chats = await Chat.find({ participants: userId })
     .sort({ lastAt: -1 })
-    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about")
+    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about reportedBy")
     .lean();
 
   const shaped = chats
@@ -68,7 +68,8 @@ router.get("/", auth, async (req, res) => {
         other: c.isGroup ? undefined : {
           id: other._id, full_name: other.full_name, phone: other.phone,
           avatar: other.avatar, isOnline: other.isOnline, lastSeen: other.lastSeen,
-          publicKey: other.publicKey, email: other.email, about: other.about
+          publicKey: other.publicKey, email: other.email, about: other.about,
+          isReportedByMe: (other.reportedBy || []).map(String).includes(userId)
         },
         lastMessage: isCleared ? "" : c.lastMessage,
         lastAt: isCleared ? null : c.lastAt,
@@ -89,7 +90,7 @@ router.get("/", auth, async (req, res) => {
 router.get("/:id", auth, async (req, res) => {
   const userId = req.user.id;
   const chat = await Chat.findById(req.params.id)
-    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about")
+    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about reportedBy")
     .lean();
 
   if (!chat || !chat.participants.some(p => String(p._id) === userId)) {
@@ -112,7 +113,8 @@ router.get("/:id", auth, async (req, res) => {
     other: chat.isGroup ? undefined : {
       id: other?._id, full_name: other?.full_name, phone: other?.phone,
       avatar: other?.avatar, isOnline: other?.isOnline, lastSeen: other?.lastSeen,
-      publicKey: other?.publicKey, email: other?.email, about: other?.about
+      publicKey: other?.publicKey, email: other?.email, about: other?.about,
+      isReportedByMe: (other?.reportedBy || []).map(String).includes(userId)
     },
     lastMessage: chat.lastMessage,
     lastAt: chat.lastAt,
