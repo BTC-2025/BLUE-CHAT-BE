@@ -76,7 +76,8 @@ router.get("/", auth, async (req, res) => {
           id: other._id, full_name: other.full_name, phone: other.phone,
           avatar: other.avatar, isOnline: other.isOnline, lastSeen: other.lastSeen,
           publicKey: other.publicKey, email: other.email, about: other.about,
-          isReportedByMe: (other.reportedBy || []).map(String).includes(userId)
+          isReportedByMe: (other.reportedBy || []).map(String).includes(userId),
+          hasReportedMe: (req.user.reportedBy || []).map(String).includes(String(other._id))
         },
         lastMessage: isCleared ? "" : c.lastMessage,
         lastAt: isCleared ? null : c.lastAt,
@@ -123,7 +124,8 @@ router.get("/:id", auth, async (req, res) => {
       id: other?._id, full_name: other?.full_name, phone: other?.phone,
       avatar: other?.avatar, isOnline: other?.isOnline, lastSeen: other?.lastSeen,
       publicKey: other?.publicKey, email: other?.email, about: other?.about,
-      isReportedByMe: (other?.reportedBy || []).map(String).includes(userId)
+      isReportedByMe: (other?.reportedBy || []).map(String).includes(userId),
+      hasReportedMe: (req.user.reportedBy || []).map(String).includes(String(other?._id))
     },
     lastMessage: chat.lastMessage,
     lastAt: chat.lastAt,
@@ -185,7 +187,9 @@ router.post("/open", auth, async (req, res) => {
       avatar: target.avatar,
       publicKey: target.publicKey,
       email: target.email,
-      about: target.about
+      about: target.about,
+      isReportedByMe: (target.reportedBy || []).map(String).includes(req.user.id),
+      hasReportedMe: (req.user.reportedBy || []).map(String).includes(String(target._id))
     }
   });
 });
