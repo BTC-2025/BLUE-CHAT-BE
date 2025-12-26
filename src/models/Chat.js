@@ -21,6 +21,8 @@ const chatSchema = new mongoose.Schema({
   clearedAt: { type: Map, of: Date, default: {} },                         // ✅ last clear time per userId
   inviteCode: { type: String, unique: true, sparse: true },                // ✅ for group join links
   pendingParticipants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ users awaiting approval
+  avatar: String,                                                          // ✅ group avatar
+  reportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],     // ✅ group reports
 }, { timestamps: true });
 
 

@@ -70,6 +70,7 @@ router.get("/", auth, async (req, res) => {
         isGroup: c.isGroup,
         title: c.isGroup ? c.title : (isSelfChat ? "Me" : (other?.full_name || other?.phone)),
         description: c.isGroup ? c.description : undefined,
+        avatar: c.isGroup ? c.avatar : undefined,
         admins: c.isGroup ? (c.admins || []).map(String) : undefined,
         other: c.isGroup ? undefined : {
           id: other._id, full_name: other.full_name, phone: other.phone,
@@ -116,6 +117,7 @@ router.get("/:id", auth, async (req, res) => {
     isGroup: chat.isGroup,
     title: chat.isGroup ? chat.title : (others.length === 0 ? "Me" : (other?.full_name || other?.phone)),
     description: chat.isGroup ? chat.description : undefined,
+    avatar: chat.isGroup ? chat.avatar : undefined,
     admins: chat.isGroup ? (chat.admins || []).map(String) : undefined,
     other: chat.isGroup ? undefined : {
       id: other?._id, full_name: other?.full_name, phone: other?.phone,
@@ -174,6 +176,7 @@ router.post("/open", auth, async (req, res) => {
   res.json({
     id: chat._id,
     title: isSelfChat ? "Me" : (target.full_name || target.phone),
+    avatar: chat.isGroup ? chat.avatar : undefined,
     isSelfChat: isSelfChat,
     other: {
       id: target._id,

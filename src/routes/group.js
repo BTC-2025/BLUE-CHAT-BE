@@ -37,6 +37,7 @@ router.post("/", auth, async (req, res) => {
     isGroup: true,
     title: title.trim(),
     description: description || "",
+    avatar: req.body.avatar || "",
     participants: all,
     admins: [req.user.id],
     lastMessage: "Group created",
@@ -56,9 +57,10 @@ router.patch("/:id", auth, async (req, res) => {
   if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
   if (!chat.admins.map(String).includes(req.user.id)) return res.status(403).json({ message: "Forbidden" });
 
-  const { title, description } = req.body;
+  const { title, description, avatar } = req.body;
   if (typeof title === "string") chat.title = title;
   if (typeof description === "string") chat.description = description;
+  if (typeof avatar === "string") chat.avatar = avatar;
   await chat.save();
 
   res.json({ ok: true });
@@ -158,7 +160,8 @@ router.get("/:id", auth, async (req, res) => {
     id: chat._id,
     title: chat.title,
     description: chat.description,
-    members: chat.participants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone })),
+    avatar: chat.avatar,
+    members: chat.participants.map(p => ({ id: p._id, name: p.full_name, phone: p.phone, avatar: p.avatar })),
     admins: chat.admins.map(a => String(a._id)),
     inviteCode: chat.inviteCode,
     pendingParticipants: chat.admins.some(a => String(a._id) === req.user.id)
@@ -276,6 +279,40 @@ router.post("/:id/approve", auth, async (req, res) => {
   } catch (err) {
     console.error("Approve error:", err);
     res.status(500).json({ message: "Failed to process request" });
+  }
+});
+
+/**
+ * POST /api/groups/:id/report
+ * User reports the group and is automatically removed
+ */
+router.post("/:id/report", auth, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.id);
+    if (!chat || !chat.isGroup) return res.status(404).json({ message: "Group not found" });
+
+    const userId = req.user.id;
+
+    // Add to reportedBy
+    if (!chat.reportedBy.includes(userId)) {
+      chat.reportedBy.push(userId);
+    }
+
+    // Remove from participants and admins
+    chat.participants.pull(userId);
+    chat.admins.pull(userId);
+
+    // Admin Succession: if no admins left, promote the oldest member
+    if (chat.admins.length === 0 && chat.participants.length > 0) {
+      const nextAdminId = chat.participants[0];
+      chat.admins.push(nextAdminId);
+    }
+
+    await chat.save();
+    res.json({ success: true, message: "Group reported and you have been removed" });
+  } catch (err) {
+    console.error("Report group error:", err);
+    res.status(500).json({ message: "Failed to report group" });
   }
 });
 

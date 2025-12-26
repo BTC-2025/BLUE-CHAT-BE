@@ -342,7 +342,7 @@ const mountIO = (httpServer, corsOrigin) => {
     });
 
     // Group creation
-    socket.on("group:create", async ({ title, description, participants }, callback) => {
+    socket.on("group:create", async ({ title, description, participants, avatar }, callback) => {
       try {
         const users = await User.find({ phone: { $in: participants } }).select("_id");
         const mappedIds = users.map((u) => String(u._id));
@@ -352,6 +352,7 @@ const mountIO = (httpServer, corsOrigin) => {
           isGroup: true,
           title,
           description,
+          avatar: avatar || "",
           participants: unique,
           admins: [userId],
           lastMessage: "Group created",
