@@ -21,7 +21,7 @@ router.get("/search/:phone", auth, async (req, res) => {
 
 router.get("/me", auth, async (req, res) => {
   const me = await User.findById(req.user.id).select("-password_hash").lean();
-  res.json(me);
+  res.json({ ...me, id: me._id });
 });
 
 // ✅ Fetch blocked users list
@@ -67,8 +67,8 @@ router.put("/profile", auth, async (req, res) => {
     req.user.id,
     { full_name, avatar, email, about },
     { new: true }
-  ).select("-password_hash");
-  res.json(me);
+  ).select("-password_hash").lean();
+  res.json({ ...me, id: me._id });
 });
 
 router.patch("/update-public-key", auth, async (req, res) => {
@@ -178,5 +178,30 @@ router.post("/:id/report", auth, async (req, res) => {
 
 // export default router;
 
-module.exports = router
+// Toggle Favorite
+router.post("/favorites/toggle", auth, async (req, res) => {
+  const { targetId } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isFav = (user.favorites || []).map(String).includes(targetId);
+    const operator = isFav ? "$pull" : "$addToSet";
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { [operator]: { favorites: targetId } },
+      { new: true }
+    );
+
+    res.json({ success: true, isFavorite: !isFav });
+  } catch (err) {
+    console.error("Toggle favorite error:", err);
+    res.status(500).json({ message: "Failed to toggle favorite" });
+  }
+});
+
+module.exports = router;
 

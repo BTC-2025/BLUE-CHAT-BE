@@ -34,6 +34,9 @@ const router = express.Router();
 
 router.get("/", auth, async (req, res) => {
   const userId = req.user.id;
+  const currentUser = await User.findById(userId).select("favorites reportedBy").lean();
+  const userFavorites = (currentUser?.favorites || []).map(String);
+
   const chats = await Chat.find({ participants: userId })
     .sort({ lastAt: -1 })
     .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about reportedBy")
@@ -72,12 +75,19 @@ router.get("/", auth, async (req, res) => {
         description: c.isGroup ? c.description : undefined,
         avatar: c.isGroup ? c.avatar : undefined,
         admins: c.isGroup ? (c.admins || []).map(String) : undefined,
+        members: c.isGroup ? c.participants.map(p => ({
+          id: p._id,
+          name: p.full_name,
+          phone: p.phone,
+          avatar: p.avatar
+        })) : undefined,
         other: c.isGroup ? undefined : {
           id: other._id, full_name: other.full_name, phone: other.phone,
           avatar: other.avatar, isOnline: other.isOnline, lastSeen: other.lastSeen,
           publicKey: other.publicKey, email: other.email, about: other.about,
           isReportedByMe: (other.reportedBy || []).map(String).includes(userId),
-          hasReportedMe: (req.user.reportedBy || []).map(String).includes(String(other._id))
+          hasReportedMe: (currentUser?.reportedBy || []).map(String).includes(String(other._id)),
+          isFavorite: userFavorites.includes(String(other._id))
         },
         lastMessage: isCleared ? "" : c.lastMessage,
         lastAt: isCleared ? null : c.lastAt,
@@ -98,6 +108,9 @@ router.get("/", auth, async (req, res) => {
 // ✅ Fetch single chat metadata
 router.get("/:id", auth, async (req, res) => {
   const userId = req.user.id;
+  const currentUser = await User.findById(userId).select("favorites reportedBy").lean();
+  const userFavorites = (currentUser?.favorites || []).map(String);
+
   const chat = await Chat.findById(req.params.id)
     .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about reportedBy")
     .lean();
@@ -120,12 +133,19 @@ router.get("/:id", auth, async (req, res) => {
     description: chat.isGroup ? chat.description : undefined,
     avatar: chat.isGroup ? chat.avatar : undefined,
     admins: chat.isGroup ? (chat.admins || []).map(String) : undefined,
+    members: chat.isGroup ? chat.participants.map(p => ({
+      id: p._id,
+      name: p.full_name,
+      phone: p.phone,
+      avatar: p.avatar
+    })) : undefined,
     other: chat.isGroup ? undefined : {
       id: other?._id, full_name: other?.full_name, phone: other?.phone,
       avatar: other?.avatar, isOnline: other?.isOnline, lastSeen: other?.lastSeen,
       publicKey: other?.publicKey, email: other?.email, about: other?.about,
       isReportedByMe: (other?.reportedBy || []).map(String).includes(userId),
-      hasReportedMe: (req.user.reportedBy || []).map(String).includes(String(other?._id))
+      hasReportedMe: (currentUser?.reportedBy || []).map(String).includes(String(other?._id)),
+      isFavorite: userFavorites.includes(String(other?._id))
     },
     lastMessage: chat.lastMessage,
     lastAt: chat.lastAt,
@@ -141,6 +161,7 @@ router.get("/:id", auth, async (req, res) => {
 // open a chat by phone (create if missing, unhide/unarchive)
 router.post("/open", auth, async (req, res) => {
   const { targetPhone } = req.body;
+  const me = await User.findById(req.user.id).select("favorites reportedBy").lean();
   const target = await User.findOne({ phone: targetPhone });
   if (!target) return res.status(404).json({ message: "Target not found" });
   // if (String(target._id) === req.user.id) return res.status(400).json({ message: "Cannot chat with yourself" });
@@ -189,8 +210,15 @@ router.post("/open", auth, async (req, res) => {
       email: target.email,
       about: target.about,
       isReportedByMe: (target.reportedBy || []).map(String).includes(req.user.id),
-      hasReportedMe: (req.user.reportedBy || []).map(String).includes(String(target._id))
-    }
+      hasReportedMe: (me?.reportedBy || []).map(String).includes(String(target._id)),
+      isFavorite: (me?.favorites || []).map(String).includes(String(target._id))
+    },
+    members: chat.isGroup ? chat.participants.map(p => ({
+      id: p._id,
+      name: p.full_name,
+      phone: p.phone,
+      avatar: p.avatar
+    })) : undefined
   });
 });
 

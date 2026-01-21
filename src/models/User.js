@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
   isDisabled: { type: Boolean, default: false }, // ✅ account suspension flag
   pushSubscriptions: { type: Array, default: [] }, // ✅ push notification tokens
   messageRetentionDays: { type: Number, default: 0 }, // ✅ 0 = Disabled, 1 = 24h, 7 = 7d, 30 = 30d
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ starred contacts
 }, { timestamps: true });
 
 
