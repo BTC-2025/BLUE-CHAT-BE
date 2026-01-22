@@ -4,6 +4,7 @@ const Chat = require("./models/Chat.js");
 const Message = require("./models/Message.js");
 const PendingDelivery = require("./models/PendingDelivery.js");
 const Call = require("./models/Call.js");
+const Business = require("./models/Business.js"); // ✅ Added
 const webpush = require("web-push");
 
 // ✅ Configure web-push
@@ -240,6 +241,71 @@ const mountIO = (httpServer, corsOrigin) => {
           });
         }
       });
+
+      // ✅ AUTOMATED GREETING FOR BUSINESS ACCOUNTS
+      // Only for 1:1 chats
+      if (!chat.isGroup) {
+        try {
+          // Find the other participant (the recipient)
+          const recipientId = chat.participants.find(p => String(p) !== userId);
+          if (recipientId) {
+            const recipientUser = await User.findById(recipientId).select('isBusiness businessId');
+
+            // If recipient is a business
+            if (recipientUser && recipientUser.isBusiness && recipientUser.businessId) {
+              const business = await Business.findById(recipientUser.businessId);
+
+              if (business && business.greetingMessage) {
+                console.log('Found Business Greeting:', business.greetingMessage);
+                // Check if sender (userId) has messaged this business TODAY
+                const startOfDay = new Date();
+                startOfDay.setHours(0, 0, 0, 0);
+
+                const messagesToday = await Message.countDocuments({
+                  chat: chatId,
+                  sender: userId,
+                  createdAt: { $gte: startOfDay }
+                });
+
+                // If count is 1 (the message just sent is the first one today)
+                if (messagesToday === 1) {
+                  // Send automated greeting from business to user
+                  let greetingMsg = await Message.create({
+                    chat: chatId,
+                    sender: recipientId, // Business sends it
+                    body: business.greetingMessage,
+                    createdAt: new Date()
+                  });
+
+                  greetingMsg = await Message.findById(greetingMsg._id)
+                    .populate("sender", "full_name phone avatar")
+                    .lean();
+
+                  // Emit to room
+                  io.to(chatId).emit("message:new", greetingMsg);
+
+                  // Update Chat metadata for the greeting
+                  await Chat.findByIdAndUpdate(chatId, {
+                    $set: {
+                      lastMessage: greetingMsg.body,
+                      lastAt: greetingMsg.createdAt
+                    },
+                    $inc: { [`unread.${userId}`]: 1 } // Increment unread for the USER (who received the greeting)
+                  });
+
+                  io.to(chatId).emit("chats:update", {
+                    chatId,
+                    lastMessage: greetingMsg.body,
+                    lastAt: greetingMsg.createdAt,
+                  });
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Automated greeting error:", err);
+        }
+      }
     });
 
     // Mark all messages read in a chat

@@ -103,8 +103,11 @@ router.patch('/update', auth, async (req, res) => {
             website,
             businessHours,
             logo,
-            coverImage
+            coverImage,
+            greetingMessage
         } = req.body;
+
+        console.log('PATCH /update received:', req.body);
 
         // Update fields
         if (businessName) business.businessName = businessName;
@@ -117,6 +120,7 @@ router.patch('/update', auth, async (req, res) => {
         if (businessHours !== undefined) business.businessHours = businessHours;
         if (logo !== undefined) business.logo = logo;
         if (coverImage !== undefined) business.coverImage = coverImage;
+        if (req.body.greetingMessage !== undefined) business.greetingMessage = req.body.greetingMessage;
 
         // If business was approved and is being updated, set back to pending
         if (business.status === 'approved') {

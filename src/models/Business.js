@@ -20,6 +20,10 @@ const businessSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    greetingMessage: {
+        type: String,
+        default: 'Hello! How can we help you today?'
+    },
     address: {
         type: String,
         default: ''
