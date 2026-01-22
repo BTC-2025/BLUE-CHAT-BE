@@ -39,7 +39,7 @@ router.get("/", auth, async (req, res) => {
 
   const chats = await Chat.find({ participants: userId })
     .sort({ lastAt: -1 })
-    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about reportedBy")
+    .populate("participants", "full_name phone avatar isOnline lastSeen publicKey email about reportedBy isBusiness businessId")
     .lean();
 
   const shaped = chats
@@ -87,7 +87,9 @@ router.get("/", auth, async (req, res) => {
           publicKey: other.publicKey, email: other.email, about: other.about,
           isReportedByMe: (other.reportedBy || []).map(String).includes(userId),
           hasReportedMe: (currentUser?.reportedBy || []).map(String).includes(String(other._id)),
-          isFavorite: userFavorites.includes(String(other._id))
+          isFavorite: userFavorites.includes(String(other._id)),
+          isBusiness: other.isBusiness, // ✅ Pass to frontend
+          businessId: other.businessId  // ✅ Pass to frontend
         },
         lastMessage: isCleared ? "" : c.lastMessage,
         lastAt: isCleared ? null : c.lastAt,
