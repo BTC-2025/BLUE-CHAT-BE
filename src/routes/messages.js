@@ -36,6 +36,13 @@ router.get("/:chatId", auth, async (req, res) => {
     })
     .populate("forwardedFrom.originalSender", "full_name phone")
     .populate("reactions.user", "full_name phone")
+    .populate({
+      path: "task",
+      populate: [
+        { path: "assignees.user", select: "full_name phone avatar" },
+        { path: "assignedBy", select: "full_name phone" }
+      ]
+    })
     .sort({ createdAt: 1 })
     .lean();
 

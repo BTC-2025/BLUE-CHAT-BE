@@ -260,10 +260,14 @@ router.get('/:userId/products', async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const business = await Business.findOne({ userId, status: 'approved' });
+        const business = await Business.findOne({ userId });
 
         if (!business) {
             return res.status(404).json({ message: 'Business not found' });
+        }
+
+        if (business.status !== 'approved') {
+            return res.json([]); // Return empty products list for pending business
         }
 
         const products = await Product.find({ businessId: business._id, inStock: true })
@@ -283,12 +287,18 @@ router.get('/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const business = await Business.findOne({ userId, status: 'approved' })
+        const business = await Business.findOne({ userId })
             .populate('userId', 'full_name phone avatar')
             .lean();
 
         if (!business) {
-            return res.status(404).json({ message: 'Business not found or not approved' });
+            // Truly NOT found (shouldn't happen if isBusiness is true, but handle it)
+            return res.status(404).json({ message: 'Business not found' });
+        }
+
+        if (business.status !== 'approved') {
+            // Found but not approved -> Return 200 with pending status so frontend doesn't 404
+            return res.status(200).json({ status: business.status, businessName: null });
         }
 
         res.json(business);

@@ -37,7 +37,9 @@ const messageSchema = new mongoose.Schema({
   pinnedAt: Date,
   // Scheduled message fields
   scheduledAt: { type: Date, index: true },
-  isReleased: { type: Boolean, default: true, index: true }
+  isReleased: { type: Boolean, default: true, index: true },
+  // Task assignment field
+  task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' }
 }, { timestamps: true });
 
 
