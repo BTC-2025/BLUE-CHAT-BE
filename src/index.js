@@ -60,6 +60,7 @@ const notificationRoutes = require('./routes/notifications.js'); // ✅ Added
 const adminRoutes = require('./routes/admin.js'); // ✅ Business Admin
 const businessRoutes = require('./routes/business.js'); // ✅ Business Accounts
 const taskRoutes = require('./routes/taskRoutes.js'); // ✅ Task Management
+const communityRoutes = require('./routes/communityRoutes.js'); // ✅ Community Feature
 const { mountIO } = require('./socket.js');
 
 async function startServer() {
@@ -93,7 +94,9 @@ async function startServer() {
   app.use("/api/notifications", notificationRoutes); // ✅ Added
   app.use("/api/admin", adminRoutes); // ✅ Business Admin
   app.use("/api/business", businessRoutes); // ✅ Business Accounts
+  app.use("/api/business", businessRoutes); // ✅ Business Accounts
   app.use("/api/tasks", taskRoutes); // ✅ Task Management
+  app.use("/api/communities", communityRoutes); // ✅ Community Feature
 
   // ✅ DB connect (inside async function)
   await connectDB(process.env.MONGO_URI);

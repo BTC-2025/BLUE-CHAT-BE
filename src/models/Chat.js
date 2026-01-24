@@ -3,6 +3,7 @@ const mongoose = require("mongoose")
 
 const chatSchema = new mongoose.Schema({
   isGroup: { type: Boolean, default: false },     // 👈 groups
+  isAnnouncementGroup: { type: Boolean, default: false }, // ✅ Announcement Group
   title: String,                                  // 👈 group name
   description: String,                            // 👈 group description
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
@@ -23,6 +24,7 @@ const chatSchema = new mongoose.Schema({
   pendingParticipants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ users awaiting approval
   avatar: String,                                                          // ✅ group avatar
   reportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],     // ✅ group reports
+  community: { type: mongoose.Schema.Types.ObjectId, ref: "Community" },   // ✅ Linked Community
 }, { timestamps: true });
 
 

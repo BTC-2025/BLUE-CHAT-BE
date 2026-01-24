@@ -81,6 +81,42 @@ const mountIO = (httpServer, corsOrigin) => {
     rooms.forEach(r => socket.join(r));
     socket.join(String(userId)); // ✅ Join private user room
 
+    // ✅ Join Chat Room (Explicitly called by client)
+    socket.on("join_chat", async ({ chatId }) => {
+      // 1. Check if direct participant
+      const chat = await Chat.findById(chatId);
+      if (!chat) return;
+
+      let hasAccess = chat.participants.map(String).includes(userId);
+
+      // 2. Check if indirect member via community
+      if (!hasAccess && chat.community) {
+        const Community = require("./models/Community"); // Lazy load
+        const community = await Community.findById(chat.community);
+        if (community) {
+          if (community.members.map(String).includes(userId)) {
+            hasAccess = true;
+          } else {
+            // Check if user is in any other group of this community
+            const userInGroups = await Chat.exists({
+              _id: { $in: community.groups },
+              participants: userId
+            });
+            if (userInGroups) hasAccess = true;
+          }
+        }
+      }
+
+      if (hasAccess) {
+        socket.join(chatId);
+
+        // Also add to userRooms tracking if needed
+        const currentRooms = userRooms.get(userId) || new Set();
+        currentRooms.add(chatId);
+        userRooms.set(userId, currentRooms);
+      }
+    });
+
     // Typing
     socket.on("typing:start", ({ chatId }) =>
       socket.to(chatId).emit("typing:started", { chatId, userId })
@@ -120,6 +156,14 @@ const mountIO = (httpServer, corsOrigin) => {
             socket.emit("message:error", { error: "You have reported this user. Communication is disabled." });
             return;
           }
+        }
+      }
+
+      // ✅ Enforce Announcement Group Permissions
+      if (chat.isAnnouncementGroup) {
+        if (!chat.admins.map(String).includes(userId)) {
+          socket.emit("message:error", { error: "Only admins can post in the announcement group." });
+          return;
         }
       }
 

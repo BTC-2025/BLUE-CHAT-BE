@@ -1,6 +1,7 @@
 const express = require("express");
 const Chat = require("../models/Chat");
 const Message = require("../models/Message");
+const mongoose = require("mongoose");
 const { auth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -14,8 +15,32 @@ router.get("/:chatId", auth, async (req, res) => {
   const chatId = req.params.chatId;
 
   const chat = await Chat.findById(chatId);
-  if (!chat || !chat.participants.map(String).includes(userId))
-    return res.sendStatus(403);
+  if (!chat) return res.sendStatus(404);
+
+  // Check direct participation OR community access
+  let hasAccess = chat.participants.map(String).includes(userId);
+
+  if (!hasAccess && chat.community) {
+    // If it's a community group (announcement or subgroup), check if user is in any group of that community
+    // This allows members of linked groups to see announcement messages
+    const community = await mongoose.model("Community").findById(chat.community);
+    if (community) {
+      if (community.members.map(String).includes(userId)) {
+        hasAccess = true;
+      } else {
+        // Deeper check: is user in ANY group of this community?
+        const userInGroups = await Chat.exists({
+          _id: { $in: community.groups },
+          participants: userId
+        });
+        if (userInGroups) hasAccess = true;
+      }
+    }
+  }
+
+  console.log(`[DEBUG] GET /messages/${chatId} - User: ${userId}, Access: ${hasAccess}, Community: ${chat.community}`);
+
+  if (!hasAccess) return res.sendStatus(403);
 
   // Fetch messages sorted by time, populate sender info for group chats
   // ✅ ENFORCE RELEASE FILTER: Recipients should NOT see scheduled messages before release.
