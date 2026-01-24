@@ -26,6 +26,16 @@ router.get("/:chatId", auth, async (req, res) => {
     $or: [
       { isReleased: { $ne: false } },
       { sender: userId }
+    ],
+    // ✅ Privacy Filter: If visibleTo is set, user must be in it. Empty visibleTo means public.
+    $and: [
+      {
+        $or: [
+          { visibleTo: { $exists: false } },
+          { visibleTo: { $size: 0 } },
+          { visibleTo: userId }
+        ]
+      }
     ]
   })
     .populate("sender", "full_name phone avatar")
