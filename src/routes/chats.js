@@ -98,7 +98,8 @@ router.get("/", auth, async (req, res) => {
         unread: unreadCount,
         isPinned: pinned,
         isArchived: isArchived,
-        isSelfChat: isSelfChat
+        isSelfChat: isSelfChat,
+        isAnnouncementGroup: c.isAnnouncementGroup // ✅ Enable filtering on frontend
       };
     })
     .filter(Boolean)
