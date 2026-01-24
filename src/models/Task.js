@@ -15,6 +15,7 @@ const TaskSchema = new mongoose.Schema({
         reason: String,
         updatedAt: { type: Date, default: Date.now }
     }],
+    isPrivate: { type: Boolean, default: false }, // ✅ New field
     createdAt: { type: Date, default: Date.now }
 });
 

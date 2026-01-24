@@ -12,15 +12,12 @@ router.use(auth);
 // ✅ Create a new Task
 router.post('/create', async (req, res) => {
     try {
-        const { title, description, chatId, assigneeIds } = req.body;
+        const { title, description, chatId, assigneeIds, isPrivate } = req.body;
         const senderId = req.user.id; // ✅ Use req.user.id
 
         // Validate Chat
         const chat = await Chat.findById(chatId);
         if (!chat) return res.status(404).json({ message: "Chat not found" });
-
-        // Verify User is in Chat (optional security check)
-        // ...
 
         // Create Task
         const task = new Task({
@@ -28,9 +25,14 @@ router.post('/create', async (req, res) => {
             description,
             chat: chatId,
             assignedBy: senderId,
-            assignees: assigneeIds.map(uid => ({ user: uid, status: 'pending' }))
+            assignees: assigneeIds.map(uid => ({ user: uid, status: 'pending' })),
+            isPrivate: !!isPrivate // ✅ Save privacy setting
         });
         await task.save();
+
+        // Calculate visibility: Creator + Assignees
+        // If public (isPrivate false), visibleTo is empty (everyone)
+        const visibleTo = isPrivate ? [senderId, ...assigneeIds] : [];
 
         // Create System Message for the Task
         const message = new Message({
@@ -38,7 +40,8 @@ router.post('/create', async (req, res) => {
             sender: senderId,
             body: `Assigned a task: ${title}`,
             task: task._id,
-            status: 'sent'
+            status: 'sent',
+            visibleTo: visibleTo // ✅ Set visibility
         });
         await message.save();
 
@@ -61,7 +64,18 @@ router.post('/create', async (req, res) => {
                     ]
                 }
             ]);
-            io.to(chatId).emit('message:new', message);
+
+            // ✅ Emit Logic: Private vs Public
+            if (isPrivate && visibleTo.length > 0) {
+                // Emit to specific users only (need to find their socket IDs or room)
+                // Assuming we join users to room `user_<id>` or similar. 
+                // If not, we iterate. Standard practice: io.to(userId).emit
+                visibleTo.forEach(uid => {
+                    io.to(uid.toString()).emit('message:new', message);
+                });
+            } else {
+                io.to(chatId).emit('message:new', message);
+            }
         }
 
         res.status(201).json({ task, message });

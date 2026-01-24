@@ -39,7 +39,9 @@ const messageSchema = new mongoose.Schema({
   scheduledAt: { type: Date, index: true },
   isReleased: { type: Boolean, default: true, index: true },
   // Task assignment field
-  task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' }
+  task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' },
+  // ✅ Visibility control (if set, only these users can see it)
+  visibleTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
 
