@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ✅ starred contacts
   isBusiness: { type: Boolean, default: false }, // ✅ business account flag
   businessId: { type: mongoose.Schema.Types.ObjectId, ref: "Business" }, // ✅ reference to business profile
+  connectedOrigins: [{ type: String }], // ✅ List of app origins this user has connected with
 }, { timestamps: true });
 
 

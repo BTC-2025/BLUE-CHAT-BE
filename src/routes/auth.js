@@ -6,13 +6,30 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const mongoose = require('mongoose')
 const User = require('../models/User')
 
 const router = express.Router();
 
+const ConnectedApp = mongoose.models.ConnectedApp || mongoose.model('ConnectedApp', new mongoose.Schema({
+  chatOriginId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  icon: { type: String },
+  registeredAt: { type: Date, default: Date.now }
+}));
+
 router.post("/register", async (req, res) => {
-  const { phone, full_name, password, avatar, publicKey } = req.body;
+  const { phone, full_name, password, avatar, publicKey, appName, appOrigin, appIcon } = req.body;
   if (!phone || !password) return res.status(400).json({ message: "Phone & password required" });
+
+  // ✅ Register connected app if provided
+  if (appOrigin && appName) {
+    await ConnectedApp.findOneAndUpdate(
+      { chatOriginId: appOrigin },
+      { name: appName, icon: appIcon, registeredAt: new Date() },
+      { upsert: true, new: true }
+    );
+  }
 
   const exists = await User.findOne({ phone });
   if (exists) return res.status(409).json({ message: "Phone already registered" });
@@ -23,7 +40,8 @@ router.post("/register", async (req, res) => {
     full_name: full_name || "",
     password_hash: hash,
     avatar: avatar || "", // ✅ Support avatar on signup
-    publicKey: publicKey || "" // ✅ Support E2EE public key
+    publicKey: publicKey || "", // ✅ Support E2EE public key
+    connectedOrigins: appOrigin ? [appOrigin] : [] // ✅ Init with origin
   });
 
   const token = jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -41,7 +59,17 @@ router.post("/register", async (req, res) => {
 });
 
 router.post("/login", async (req, res) => {
-  const { phone, password } = req.body;
+  const { phone, password, appName, appOrigin, appIcon } = req.body;
+
+  // ✅ Register connected app if provided
+  if (appOrigin && appName) {
+    await ConnectedApp.findOneAndUpdate(
+      { chatOriginId: appOrigin },
+      { name: appName, icon: appIcon, registeredAt: new Date() },
+      { upsert: true, new: true }
+    );
+  }
+
   const user = await User.findOne({ phone });
   if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -51,6 +79,15 @@ router.post("/login", async (req, res) => {
 
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(400).json({ message: "Wrong password" });
+
+  // ✅ Add origin to user if new
+  if (appOrigin) {
+    if (!user.connectedOrigins?.includes(appOrigin)) {
+      await User.findByIdAndUpdate(user._id, {
+        $addToSet: { connectedOrigins: appOrigin }
+      });
+    }
+  }
 
   const token = jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, { expiresIn: "7d" });
   res.json({

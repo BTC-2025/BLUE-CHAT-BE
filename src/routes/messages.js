@@ -114,4 +114,80 @@ router.get("/:chatId", auth, async (req, res) => {
   res.json(processed);
 });
 
+/**
+ * ✅ POST /api/messages
+ * Send a new message
+ */
+router.post("/", auth, async (req, res) => {
+  try {
+    const { chatId, content, type = "text", replyTo, tempId, task } = req.body;
+    const senderId = req.user.id;
+
+    if (!chatId || !content) {
+      return res.status(400).json({ message: "Chat ID and content are required" });
+    }
+
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+    // Check participation
+    const isParticipant = chat.participants.map(String).includes(senderId);
+    if (!isParticipant) {
+      return res.status(403).json({ message: "Not a participant" });
+    }
+
+    // Create Message
+    const newMessage = await Message.create({
+      chat: chatId,
+      sender: senderId,
+      body: content, // Schema uses 'body', client sent 'content'
+      type,
+      replyTo,
+      task,
+      isReleased: true, // Direct send is always released
+      createdAt: new Date()
+    });
+
+    // Update Chat
+    chat.lastMessage = type === 'text' ? content : `Sent a ${type}`;
+    chat.lastAt = new Date();
+    // Reset unread for others, increment for them
+    chat.participants.forEach(p => {
+      const pid = String(p);
+      if (pid !== senderId) {
+        chat.unread = chat.unread || {};
+        chat.unread.set(pid, (chat.unread.get(pid) || 0) + 1);
+      }
+    });
+    await chat.save();
+
+    // Populate for response
+    await newMessage.populate([
+      { path: "sender", select: "full_name phone avatar" },
+      { path: "replyTo", select: "body sender" }
+    ]);
+
+    // Socket Emit
+    const io = req.app.get("io");
+    if (io) {
+      const msgData = {
+        ...newMessage.toObject(),
+        tempId // return tempId for optimistic UI correlation
+      };
+
+      chat.participants.forEach(p => {
+        io.to(String(p)).emit("new_message", msgData);
+      });
+
+      // Also emit to chat room if used
+      io.to(chatId).emit("new_message", msgData);
+    }
+
+    res.status(201).json(newMessage);
+  } catch (err) {
+    console.error("Send Message Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

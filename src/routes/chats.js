@@ -99,7 +99,8 @@ router.get("/", auth, async (req, res) => {
         isPinned: pinned,
         isArchived: isArchived,
         isSelfChat: isSelfChat,
-        isAnnouncementGroup: c.isAnnouncementGroup // ✅ Enable filtering on frontend
+        isAnnouncementGroup: c.isAnnouncementGroup, // ✅ Enable filtering on frontend
+        origin: c.origin // ✅ e.g. 'ecommerce' or 'blue-chat'
       };
     })
     .filter(Boolean)
@@ -157,21 +158,22 @@ router.get("/:id", auth, async (req, res) => {
     unread: unreadCount,
     isPinned: pinned,
     isArchived: isArchived,
-    isSelfChat: others.length === 0
+    isSelfChat: others.length === 0,
+    origin: chat.origin // ✅ Pass origin
   });
 });
 
 // open a chat by phone (create if missing, unhide/unarchive)
 router.post("/open", auth, async (req, res) => {
-  const { targetPhone } = req.body;
+  const { targetPhone, origin = "blue-chat" } = req.body; // ✅ Support origin
   const me = await User.findById(req.user.id).select("favorites reportedBy").lean();
   const target = await User.findOne({ phone: targetPhone });
   if (!target) return res.status(404).json({ message: "Target not found" });
-  // if (String(target._id) === req.user.id) return res.status(400).json({ message: "Cannot chat with yourself" });
 
   // Use $size: 1 for self-chats, or standard $all for 2-participant chats
   let query = {
     isGroup: false,
+    origin: origin, // ✅ Match specific origin (separation of concerns)
     participants: { $all: [req.user.id, target._id] }
   };
 
@@ -183,6 +185,7 @@ router.post("/open", auth, async (req, res) => {
   if (!chat) {
     chat = await Chat.create({
       isGroup: false,
+      origin: origin, // ✅ Save origin
       participants: String(target._id) === req.user.id ? [req.user.id] : [req.user.id, target._id]
     });
   } else {

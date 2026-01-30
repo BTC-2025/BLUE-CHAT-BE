@@ -25,6 +25,7 @@ const chatSchema = new mongoose.Schema({
   avatar: String,                                                          // ✅ group avatar
   reportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],     // ✅ group reports
   community: { type: mongoose.Schema.Types.ObjectId, ref: "Community" },   // ✅ Linked Community
+  origin: { type: String, default: "blue-chat" },                          // ✅ 'ecommerce', 'organic', 'blue-chat'
 }, { timestamps: true });
 
 
