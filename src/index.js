@@ -99,6 +99,7 @@ async function startServer() {
   app.use("/api/tasks", taskRoutes); // ✅ Task Management
   app.use("/api/communities", communityRoutes); // ✅ Community Feature
   app.use("/api/integration", integrationRoutes); // ✅ E-commerce Integration
+  app.use("/api/v1", require('./routes/api_v1.js')); // ✅ Public Chat API (CaaS)
 
   // ✅ DB connect (inside async function)
   await connectDB(process.env.MONGO_URI);
