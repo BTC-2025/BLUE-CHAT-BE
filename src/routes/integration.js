@@ -209,8 +209,8 @@ router.post('/chat', async (req, res) => {
             // Emit socket event if IO is available
             const io = req.app.get("io");
             if (io) {
-                io.to(participantId).emit("new_message", msg);
-                io.to(myId).emit("new_message", msg);
+                io.to(participantId).emit("message:new", msg);
+                io.to(myId).emit("message:new", msg);
             }
         }
 

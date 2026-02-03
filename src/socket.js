@@ -82,10 +82,10 @@ const mountIO = (httpServer, corsOrigin) => {
     socket.join(String(userId)); // ✅ Join private user room
 
     // ✅ Join Chat Room (Explicitly called by client)
-    socket.on("join_chat", async ({ chatId }) => {
+    socket.on("join_chat", async ({ chatId }, callback) => {
       // 1. Check if direct participant
       const chat = await Chat.findById(chatId);
-      if (!chat) return;
+      if (!chat) return callback?.({ error: "Chat not found" });
 
       let hasAccess = chat.participants.map(String).includes(userId);
 
@@ -114,6 +114,10 @@ const mountIO = (httpServer, corsOrigin) => {
         const currentRooms = userRooms.get(userId) || new Set();
         currentRooms.add(chatId);
         userRooms.set(userId, currentRooms);
+
+        callback?.({ success: true });
+      } else {
+        callback?.({ error: "Access denied" });
       }
     });
 

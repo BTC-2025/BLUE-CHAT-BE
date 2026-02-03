@@ -176,11 +176,11 @@ router.post("/", auth, async (req, res) => {
       };
 
       chat.participants.forEach(p => {
-        io.to(String(p)).emit("new_message", msgData);
+        io.to(String(p)).emit("message:new", msgData);
       });
 
       // Also emit to chat room if used
-      io.to(chatId).emit("new_message", msgData);
+      io.to(chatId).emit("message:new", msgData);
     }
 
     res.status(201).json(newMessage);
