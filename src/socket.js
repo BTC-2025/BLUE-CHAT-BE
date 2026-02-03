@@ -130,7 +130,7 @@ const mountIO = (httpServer, corsOrigin) => {
     );
 
     // Send message
-    socket.on("message:send", async ({ chatId, body, attachments, replyTo, encryptedBody, encryptedKeys, scheduledAt }) => {
+    socket.on("message:send", async ({ chatId, body, attachments, replyTo, encryptedBody, encryptedKeys, scheduledAt, tempId }) => {
       const chat = await Chat.findById(chatId);
       if (!chat) return;
 
@@ -195,6 +195,11 @@ const mountIO = (httpServer, corsOrigin) => {
           populate: { path: "sender", select: "full_name phone" }
         })
         .lean();
+
+      // ✅ Echo tempId for client deduplication
+      if (tempId) {
+        msg.tempId = tempId;
+      }
 
       // If scheduled, stop here
       if (isScheduled) {
