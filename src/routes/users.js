@@ -12,6 +12,14 @@ const { auth } = require('../middleware/auth')
 
 const router = express.Router();
 
+async function updateUser(userId, payload) {
+  return User.findByIdAndUpdate(
+    userId,
+    { $set: payload },
+    { new: true }
+  ).select("-password_hash");
+}
+
 // search by phone to start chat
 router.get("/search/:phone", auth, async (req, res) => {
   const u = await User.findOne({ phone: req.params.phone });
@@ -61,21 +69,51 @@ router.patch("/me", auth, async (req, res) => {
 });
 
 // ✅ Profile update endpoint (for ProfileModal)
+// router.put("/profile", auth, async (req, res) => {
+//   const { full_name, avatar, email, about } = req.body;
+//   const me = await User.findByIdAndUpdate(
+//     req.user.id,
+//     { full_name, avatar, email, about },
+//     { new: true }
+//   ).select("-password_hash").lean();
+//   res.json({ ...me, id: me._id });
+// });
+
 router.put("/profile", auth, async (req, res) => {
-  const { full_name, avatar, email, about } = req.body;
-  const me = await User.findByIdAndUpdate(
-    req.user.id,
-    { full_name, avatar, email, about },
-    { new: true }
-  ).select("-password_hash").lean();
-  res.json({ ...me, id: me._id });
+  try {
+    const allowedFields = [
+      "full_name",
+      "avatar",
+      "email",
+      "about",
+      "publicKey"
+    ];
+
+    const update = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        update[key] = req.body[key];
+      }
+    }
+
+    const me = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: update },
+      { new: true }
+    ).select("-password_hash");
+
+    res.json(me);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Profile update failed" });
+  }
 });
 
-router.patch("/update-public-key", auth, async (req, res) => {
-  const { publicKey } = req.body;
-  const user = await User.findByIdAndUpdate(req.user.id, { publicKey }, { new: true }).select("-password_hash");
-  res.json(user);
-});
+// router.patch("/update-public-key", auth, async (req, res) => {
+//   const { publicKey } = req.body;
+//   const user = await User.findByIdAndUpdate(req.user.id, { publicKey }, { new: true }).select("-password_hash");
+//   res.json(user);
+// });
 
 // ✅ Update Message Retention Setting
 router.patch("/retention", auth, async (req, res) => {
